@@ -256,12 +256,12 @@ def create_app(config_name=None):
             user_id=current_user.id, status='active'
         ).all()
         my_groups = [m.group for m in my_memberships]
-        pending_invites = GroupInvitation.query.filter_by(
+        group_invites = GroupInvitation.query.filter_by(
             invitee_id=current_user.id, status='pending'
         ).all()
         return render_template('groups/index.html',
                                my_groups=my_groups,
-                               pending_invites=pending_invites)
+                               group_invites=group_invites)
 
     @app.route('/groups/create', methods=['GET', 'POST'])
     @login_required

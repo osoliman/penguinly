@@ -16,13 +16,13 @@
 </div>
 
 <!-- Pending Invitations -->
-{% if pending_invites %}
+{% if group_invites %}
   <div style="padding:0 32px 20px;">
     <div style="font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">
       Pending Invitations
     </div>
     <div class="card" style="padding:0;overflow:hidden;">
-      {% for inv in pending_invites %}
+      {% for inv in group_invites %}
         <div class="invite-card">
           <div class="group-icon" style="background:{{ inv.group.cover_color }};width:40px;height:40px;font-size:14px;border-radius:10px;">
             {{ inv.group.name[:1].upper() }}
