@@ -1,9 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="sunset">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Penguinly{% endblock %}</title>
+  <!-- Theme init: runs before paint to avoid flicker -->
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme') || '{{ current_user.theme if current_user.is_authenticated else "sunset" }}';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -33,14 +40,36 @@
 <div class="app-shell">
   <!-- ─── Sidebar ─────────────────────────────────────────── -->
   <aside class="sidebar">
+
+    <!-- Collapse toggle -->
+    <button id="sidebar-collapse-btn" class="sidebar-collapse-btn" title="Toggle sidebar" aria-label="Toggle sidebar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+
     <!-- Logo -->
-    <div class="sidebar-logo">
-      <div class="logo-penguin">🐧</div>
-      <div>
+    <a href="{{ url_for('square') }}" class="sidebar-logo" style="text-decoration:none;">
+      <!-- SVG Penguin logo -->
+      <svg class="logo-penguin" width="34" height="34" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="50" cy="68" rx="30" ry="34" fill="var(--accent)"/>
+        <ellipse cx="50" cy="74" rx="18" ry="21" fill="white" opacity=".9"/>
+        <circle cx="50" cy="30" r="22" fill="var(--accent)"/>
+        <circle cx="42" cy="26" r="4" fill="white"/>
+        <circle cx="58" cy="26" r="4" fill="white"/>
+        <circle cx="42.5" cy="27" r="2" fill="#1a1a2e"/>
+        <circle cx="58.5" cy="27" r="2" fill="#1a1a2e"/>
+        <ellipse cx="50" cy="37" rx="6" ry="4" fill="#F59E0B"/>
+        <ellipse cx="38" cy="100" rx="11" ry="6" fill="#F59E0B"/>
+        <ellipse cx="62" cy="100" rx="11" ry="6" fill="#F59E0B"/>
+      </svg>
+      <div class="hide-collapsed">
         <div class="logo-wordmark">Penguinly</div>
         <div class="logo-badge">EXCLUSIVE</div>
       </div>
-    </div>
+    </a>
 
     <!-- Nav -->
     <nav class="sidebar-nav">
@@ -51,7 +80,7 @@
           <line x1="2" y1="12" x2="22" y2="12"/>
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
         </svg>
-        <span class="nav-label">Public Square</span>
+        <span class="nav-label hide-collapsed">Public Square</span>
       </a>
 
       <a href="{{ url_for('groups') }}"
@@ -62,7 +91,7 @@
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
           <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
-        <span class="nav-label">Groups</span>
+        <span class="nav-label hide-collapsed">Groups</span>
         {% if pending_invites > 0 %}
           <span class="nav-badge pink" id="invite-badge">{{ pending_invites }}</span>
         {% else %}
@@ -75,7 +104,7 @@
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
-        <span class="nav-label">Messages</span>
+        <span class="nav-label hide-collapsed">Messages</span>
         {% if unread_dms > 0 %}
           <span class="nav-badge" id="dm-badge">{{ unread_dms }}</span>
         {% else %}
@@ -89,7 +118,7 @@
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-        <span class="nav-label">Notifications</span>
+        <span class="nav-label hide-collapsed">Notifications</span>
         {% if unread_notifications > 0 %}
           <span class="nav-badge" id="notif-badge">{{ unread_notifications }}</span>
         {% else %}
@@ -97,14 +126,23 @@
         {% endif %}
       </a>
 
+      <a href="{{ url_for('settings') }}"
+         class="nav-item {% if request.endpoint == 'settings' %}active{% endif %}">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span class="nav-label hide-collapsed">Settings</span>
+      </a>
+
       {% if my_groups %}
-        <div class="divider" style="margin: 12px 0 4px;"></div>
-        <div class="nav-section-label">My Groups</div>
+        <div class="divider hide-collapsed" style="margin: 12px 0 4px;"></div>
+        <div class="nav-section-label hide-collapsed">My Groups</div>
         {% for group in my_groups[:6] %}
           <a href="{{ url_for('view_group', group_id=group.id) }}"
              class="nav-group-item {% if request.endpoint == 'view_group' and request.view_args.group_id == group.id %}active{% endif %}">
             <div class="nav-group-dot" style="background:{{ group.cover_color }}"></div>
-            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;font-size:13px;">{{ group.name }}</span>
+            <span class="hide-collapsed" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;font-size:13px;">{{ group.name }}</span>
           </a>
         {% endfor %}
       {% endif %}
@@ -112,16 +150,18 @@
 
     <!-- Current user -->
     <div class="sidebar-user">
-      <div class="avatar avatar-sm"
-           style="background:{{ current_user.avatar_color }}">
-        {{ current_user.get_avatar_initials() }}
-      </div>
-      <div class="sidebar-user-info">
+      <a href="{{ url_for('profile', username=current_user.username) }}" style="text-decoration:none;flex-shrink:0;">
+        <div class="avatar avatar-sm"
+             style="background:{{ current_user.avatar_color }}">
+          {{ current_user.get_avatar_initials() }}
+        </div>
+      </a>
+      <div class="sidebar-user-info hide-collapsed">
         <a href="{{ url_for('profile', username=current_user.username) }}"
            class="sidebar-user-name">{{ current_user.display_name }}</a>
         <span class="sidebar-user-handle">@{{ current_user.username }}</span>
       </div>
-      <a href="{{ url_for('logout') }}" class="sidebar-logout" title="Sign out">
+      <a href="{{ url_for('logout') }}" class="sidebar-logout hide-collapsed" title="Sign out">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/>

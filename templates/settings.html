@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Settings — Penguinly{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;padding:28px 32px 64px;">
+
+  <div class="page-header" style="padding:0 0 24px;">
+    <div>
+      <div class="page-title">Settings</div>
+      <div class="page-subtitle">Customize your Penguinly experience</div>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('settings') }}" id="settings-form">
+    <!-- Hidden inputs synced by JS -->
+    <input type="hidden" id="theme-input" name="theme" value="{{ current_user.theme or 'sunset' }}">
+    <input type="hidden" id="article-mode-input" name="article_mode" value="{{ '1' if current_user.article_mode else '0' }}">
+
+    <!-- ── Appearance ─────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">
+        Appearance
+      </div>
+
+      <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Color Theme</div>
+      <div class="theme-grid">
+
+        <!-- Penguin Sunset -->
+        <div class="theme-option {% if (current_user.theme or 'sunset') == 'sunset' %}active{% endif %}"
+             data-theme="sunset">
+          <div class="theme-swatch">
+            <div style="background:linear-gradient(135deg,#4F46E5,#7C3AED,#EC4899);width:100%;height:100%;border-radius:8px;"></div>
+          </div>
+          <div class="theme-name">Penguin Sunset</div>
+          <div class="theme-desc">Indigo & rose — the default</div>
+          <div class="theme-check">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Natural -->
+        <div class="theme-option {% if current_user.theme == 'natural' %}active{% endif %}"
+             data-theme="natural">
+          <div class="theme-swatch">
+            <div style="background:linear-gradient(135deg,#6B7280,#78716C,#A8A29E);width:100%;height:100%;border-radius:8px;"></div>
+          </div>
+          <div class="theme-name">Natural</div>
+          <div class="theme-desc">Earthy, warm & minimal</div>
+          <div class="theme-check">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Black & White -->
+        <div class="theme-option {% if current_user.theme == 'bw' %}active{% endif %}"
+             data-theme="bw">
+          <div class="theme-swatch">
+            <div style="background:linear-gradient(135deg,#111,#444,#aaa);width:100%;height:100%;border-radius:8px;"></div>
+          </div>
+          <div class="theme-name">Black & White</div>
+          <div class="theme-desc">Monochrome & sharp</div>
+          <div class="theme-check">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Writing ─────────────────────────────────────────── -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;">
+        Writing
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary);">Article Mode</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.5;">
+            Replace the compose box with a rich Markdown editor. Supports <strong>bold</strong>, <em>italic</em>, headers, code blocks, tables and more.
+          </div>
+        </div>
+        <label class="toggle-switch">
+          <input
+            type="checkbox"
+            id="article-mode-toggle"
+            {% if current_user.article_mode %}checked{% endif %}
+          >
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Save ────────────────────────────────────────────── -->
+    <button type="submit" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+      Save settings
+    </button>
+  </form>
+
+  <!-- ── Profile quick links ─────────────────────────────── -->
+  <div class="card" style="margin-top:24px;padding:0;overflow:hidden;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:16px 20px 8px;">
+      Account
+    </div>
+    <a href="{{ url_for('edit_profile') }}"
+       style="display:flex;align-items:center;gap:12px;padding:12px 20px;text-decoration:none;color:var(--text-primary);transition:background .15s;border-top:1px solid var(--border-subtle);"
+       onmouseover="this.style.background='rgba(255,255,255,.35)'"
+       onmouseout="this.style.background='transparent'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--text-muted)">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <div>
+        <div style="font-size:13px;font-weight:600;">Edit Profile</div>
+        <div style="font-size:11px;color:var(--text-muted);">Update your name, bio, avatar color</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto;color:var(--text-muted);">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </a>
+    <a href="{{ url_for('logout') }}"
+       style="display:flex;align-items:center;gap:12px;padding:12px 20px;text-decoration:none;color:var(--red,#ef4444);transition:background .15s;border-top:1px solid var(--border-subtle);"
+       onmouseover="this.style.background='rgba(239,68,68,.06)'"
+       onmouseout="this.style.background='transparent'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      <div style="font-size:13px;font-weight:600;">Sign out</div>
+    </a>
+  </div>
+
+</div>
+{% endblock %}

@@ -18,13 +18,44 @@
           <div class="notif-item {% if not n.is_read %}unread{% endif %}">
             <div class="notif-icon"
                  style="background:{% if n.type == 'invite' %}var(--accent-bg){% elif n.type == 'heart' or n.type == 'reaction' %}var(--pink-bg){% elif n.type == 'follow' %}var(--green-bg){% elif n.type == 'dm' %}var(--accent-bg){% else %}var(--amber-bg){% endif %};">
-              {% if n.type == 'invite' %}🎉
-              {% elif n.type == 'reaction' %}👍
-              {% elif n.type == 'heart' %}❤️
-              {% elif n.type == 'follow' %}✨
-              {% elif n.type == 'dm' %}💬
-              {% elif n.type == 'comment' %}💭
-              {% else %}🔔
+              {% if n.type == 'invite' %}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <line x1="19" y1="8" x2="19" y2="14"/>
+                  <line x1="22" y1="11" x2="16" y2="11"/>
+                </svg>
+              {% elif n.type == 'reaction' %}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+                  <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                </svg>
+              {% elif n.type == 'heart' %}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              {% elif n.type == 'follow' %}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <polyline points="23 11 17 11 20 8"/>
+                  <polyline points="17 11 20 14"/>
+                </svg>
+              {% elif n.type == 'dm' %}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              {% elif n.type == 'comment' %}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  <line x1="9" y1="10" x2="15" y2="10"/>
+                  <line x1="9" y1="14" x2="13" y2="14"/>
+                </svg>
+              {% else %}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
               {% endif %}
             </div>
             <div class="notif-body">

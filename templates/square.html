@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Public Square — Penguinly{% endblock %}
 
+{% block head %}
+  {% if current_user.article_mode %}
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+  {% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div>
@@ -16,21 +22,60 @@
 
     <!-- Compose -->
     <div class="card">
-      <form method="POST" action="{{ url_for('create_post') }}">
+      <form method="POST" action="{{ url_for('create_post') }}"
+            enctype="multipart/form-data">
         <div class="compose-box">
           <div class="avatar avatar-md" style="background:{{ current_user.avatar_color }};flex-shrink:0;">
             {{ current_user.get_avatar_initials() }}
           </div>
-          <div class="compose-input-wrap">
-            <textarea
-              id="compose-textarea"
-              name="content"
-              class="compose-textarea"
-              placeholder="Share something with the community…"
-              rows="3"
-              maxlength="500"
-              required
-            ></textarea>
+          <div class="compose-input-wrap" style="width:100%;">
+
+            {% if current_user.article_mode %}
+              <!-- Article / Markdown mode -->
+              <textarea
+                id="md-editor"
+                name="content"
+                placeholder="Write your article… supports **bold**, *italic*, `code`, > quotes"
+                required
+              ></textarea>
+              <input type="hidden" name="is_markdown" value="1">
+            {% else %}
+              <!-- Standard compose -->
+              <textarea
+                id="compose-textarea"
+                name="content"
+                class="compose-textarea"
+                placeholder="Share something with the community…"
+                rows="3"
+                maxlength="500"
+                required
+              ></textarea>
+              <input type="hidden" name="is_markdown" value="0">
+            {% endif %}
+
+            <!-- Image upload -->
+            <div class="compose-image-row">
+              <label class="btn btn-ghost btn-sm" style="cursor:pointer;" title="Attach image">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span>Photo</span>
+                <input type="file" id="post-image-input" name="image" accept="image/*"
+                       style="display:none;">
+              </label>
+              <div id="post-image-preview" style="display:none;align-items:center;gap:8px;">
+                <img id="post-image-preview-img" src="" alt=""
+                     style="height:48px;width:auto;border-radius:6px;object-fit:cover;border:1px solid var(--border);">
+                <button type="button" id="post-image-remove" class="btn btn-ghost btn-sm btn-icon" title="Remove image">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
             <div class="compose-footer">
               <span id="char-counter" class="char-counter">0 / 500</span>
               <button type="submit" class="btn btn-primary btn-sm">
@@ -58,20 +103,46 @@
                   {{ post.author.get_avatar_initials() }}
                 </div>
               </a>
-              <div>
+              <div style="flex:1;min-width:0;">
                 <a href="{{ url_for('profile', username=post.author.username) }}"
                    style="text-decoration:none;">
                   <div class="post-author-name">{{ post.author.display_name }}</div>
                   <div class="post-author-handle">@{{ post.author.username }}</div>
                 </a>
               </div>
-              <span class="post-time">
-                {{ post.created_at.strftime('%-d %b') }}
-              </span>
+              <span class="post-time">{{ post.created_at.strftime('%-d %b') }}</span>
+              <!-- Delete post (own or admin) -->
+              {% if post.author.id == current_user.id or current_user.is_admin %}
+                <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}"
+                      onsubmit="return confirm('Delete this post?')" style="margin-left:4px;">
+                  <button type="submit" class="btn btn-icon btn-ghost btn-sm" title="Delete post"
+                          style="color:var(--text-muted);padding:4px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                      <path d="M10 11v6"/><path d="M14 11v6"/>
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
+                  </button>
+                </form>
+              {% endif %}
             </div>
 
             <!-- Content -->
-            <div class="post-content">{{ post.content }}</div>
+            {% if post.is_markdown %}
+              <div class="post-content markdown">{{ post.content | md }}</div>
+            {% else %}
+              <div class="post-content">{{ post.content }}</div>
+            {% endif %}
+
+            <!-- Post image -->
+            {% if post.image_filename %}
+              <div style="padding:0 20px 12px;">
+                <img src="{{ url_for('static', filename='uploads/' ~ post.image_filename) }}"
+                     alt="Post image"
+                     style="width:100%;max-height:400px;object-fit:cover;border-radius:var(--r-lg);border:1px solid var(--border-subtle);">
+              </div>
+            {% endif %}
 
             <!-- Actions -->
             <div class="post-actions">
@@ -132,14 +203,62 @@
             <!-- Comments section -->
             <div class="comments-section" id="comments-{{ post.id }}">
               {% for comment in post.comments %}
-                <div class="comment-item">
+                <div class="comment-item" id="comment-{{ comment.id }}">
                   <div class="avatar avatar-xs" style="background:{{ comment.author.avatar_color }}">
                     {{ comment.author.get_avatar_initials() }}
                   </div>
-                  <div class="comment-body">
-                    <div class="comment-author">{{ comment.author.display_name }}</div>
-                    <div class="comment-text">{{ comment.content }}</div>
+                  <div class="comment-body" style="flex:1;min-width:0;">
+                    <div class="comment-author">
+                      {{ comment.author.display_name }}
+                      {% if comment.updated_at %}
+                        <span style="font-size:10px;color:var(--text-muted);font-weight:400;margin-left:4px;">(edited)</span>
+                      {% endif %}
+                    </div>
+                    <!-- Comment text (toggles with edit form) -->
+                    <div class="comment-text" id="comment-text-{{ comment.id }}">{{ comment.content }}</div>
+
+                    <!-- Inline edit form (hidden by default) -->
+                    {% if comment.author.id == current_user.id %}
+                      <form method="POST" action="{{ url_for('edit_comment', comment_id=comment.id) }}"
+                            id="comment-edit-form-{{ comment.id }}"
+                            style="display:none;gap:6px;align-items:flex-end;margin-top:4px;">
+                        <textarea name="content" class="comment-input"
+                                  style="flex:1;resize:none;min-height:36px;"
+                                  data-autogrow>{{ comment.content }}</textarea>
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button" class="btn btn-ghost btn-sm comment-edit-cancel"
+                                data-comment-id="{{ comment.id }}">Cancel</button>
+                      </form>
+                    {% endif %}
                   </div>
+
+                  <!-- Comment actions (edit / delete) -->
+                  {% if comment.author.id == current_user.id or current_user.is_admin %}
+                    <div class="comment-actions">
+                      {% if comment.author.id == current_user.id %}
+                        <button type="button"
+                                class="btn btn-icon btn-ghost comment-edit-btn"
+                                data-comment-id="{{ comment.id }}"
+                                title="Edit comment"
+                                style="padding:3px;color:var(--text-muted);">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                      {% endif %}
+                      <form method="POST" action="{{ url_for('delete_comment', comment_id=comment.id) }}"
+                            onsubmit="return confirm('Delete comment?')">
+                        <button type="submit" class="btn btn-icon btn-ghost"
+                                title="Delete comment"
+                                style="padding:3px;color:var(--text-muted);">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </button>
+                      </form>
+                    </div>
+                  {% endif %}
                 </div>
               {% endfor %}
 
@@ -231,4 +350,10 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.article_mode %}
+<script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+{% endif %}
 {% endblock %}

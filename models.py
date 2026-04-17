@@ -15,10 +15,14 @@ class User(UserMixin, db.Model):
     display_name = db.Column(db.String(100))
     bio = db.Column(db.Text)
     avatar_color = db.Column(db.String(7), default='#4F46E5')
+    theme = db.Column(db.String(20), default='sunset')          # sunset | bw | natural
+    article_mode = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
 
-    posts = db.relationship('Post', backref='author', lazy='dynamic', foreign_keys='Post.user_id')
+    posts = db.relationship('Post', backref='author', lazy='dynamic',
+                            foreign_keys='Post.user_id')
     sent_messages = db.relationship('DirectMessage', backref='sender', lazy='dynamic',
                                     foreign_keys='DirectMessage.sender_id')
     received_messages = db.relationship('DirectMessage', backref='receiver', lazy='dynamic',
@@ -38,7 +42,9 @@ class User(UserMixin, db.Model):
         return name[:2].upper()
 
     def is_following(self, user):
-        return Follow.query.filter_by(follower_id=self.id, following_id=user.id).first() is not None
+        return Follow.query.filter_by(
+            follower_id=self.id, following_id=user.id
+        ).first() is not None
 
     def followers_count(self):
         return Follow.query.filter_by(following_id=self.id).count()
@@ -49,8 +55,7 @@ class User(UserMixin, db.Model):
     def is_online(self):
         if not self.last_seen:
             return False
-        delta = datetime.utcnow() - self.last_seen
-        return delta.total_seconds() < 300  # 5 minutes
+        return (datetime.utcnow() - self.last_seen).total_seconds() < 300
 
 
 class Follow(db.Model):
@@ -95,10 +100,10 @@ class Group(db.Model):
         ).first() is not None
 
     def is_admin(self, user):
-        membership = GroupMembership.query.filter_by(
+        m = GroupMembership.query.filter_by(
             group_id=self.id, user_id=user.id, status='active'
         ).first()
-        return membership and membership.role == 'admin'
+        return m and m.role == 'admin'
 
     def can_join(self):
         return self.member_count() < self.max_members
@@ -109,8 +114,8 @@ class GroupMembership(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    role = db.Column(db.String(20), default='member')  # admin, member
-    status = db.Column(db.String(20), default='active')  # active, left, removed
+    role = db.Column(db.String(20), default='member')
+    status = db.Column(db.String(20), default='active')
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref='group_memberships')
@@ -124,7 +129,7 @@ class GroupInvitation(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
     inviter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     invitee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected
+    status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     responded_at = db.Column(db.DateTime)
 
@@ -144,8 +149,12 @@ class GroupMessage(db.Model):
     reactions = db.relationship('MessageReaction', backref='message', lazy='dynamic')
 
     def reaction_counts(self):
-        likes = MessageReaction.query.filter_by(message_id=self.id, reaction_type='like').count()
-        hearts = MessageReaction.query.filter_by(message_id=self.id, reaction_type='heart').count()
+        likes = MessageReaction.query.filter_by(
+            message_id=self.id, reaction_type='like'
+        ).count()
+        hearts = MessageReaction.query.filter_by(
+            message_id=self.id, reaction_type='heart'
+        ).count()
         return {'like': likes, 'heart': hearts}
 
 
@@ -154,7 +163,7 @@ class MessageReaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     message_id = db.Column(db.Integer, db.ForeignKey('group_messages.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    reaction_type = db.Column(db.String(20), nullable=False)  # like, heart
+    reaction_type = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint('message_id', 'user_id', 'reaction_type'),)
@@ -174,9 +183,11 @@ class Post(db.Model):
     __tablename__ = 'posts'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.Text, nullable=False, default='')
     post_type = db.Column(db.String(20), default='public')
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True)
+    image_filename = db.Column(db.String(255), nullable=True)
+    is_markdown = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     reactions = db.relationship('PostReaction', backref='post', lazy='dynamic')
@@ -184,16 +195,22 @@ class Post(db.Model):
                                order_by='Comment.created_at')
 
     def like_count(self):
-        return PostReaction.query.filter_by(post_id=self.id, reaction_type='like').count()
+        return PostReaction.query.filter_by(
+            post_id=self.id, reaction_type='like'
+        ).count()
 
     def heart_count(self):
-        return PostReaction.query.filter_by(post_id=self.id, reaction_type='heart').count()
+        return PostReaction.query.filter_by(
+            post_id=self.id, reaction_type='heart'
+        ).count()
 
     def comment_count(self):
         return Comment.query.filter_by(post_id=self.id).count()
 
     def user_reaction(self, user_id):
-        return PostReaction.query.filter_by(post_id=self.id, user_id=user_id).first()
+        return PostReaction.query.filter_by(
+            post_id=self.id, user_id=user_id
+        ).first()
 
 
 class PostReaction(db.Model):
@@ -201,7 +218,7 @@ class PostReaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    reaction_type = db.Column(db.String(20), nullable=False)  # like, heart
+    reaction_type = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref='post_reactions')
@@ -216,6 +233,7 @@ class Comment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True)
 
     author = db.relationship('User', backref='comments')
 
@@ -224,7 +242,7 @@ class Notification(db.Model):
     __tablename__ = 'notifications'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False)  # invite, reaction, comment, follow, dm
+    type = db.Column(db.String(50), nullable=False)
     message = db.Column(db.Text, nullable=False)
     related_id = db.Column(db.Integer)
     is_read = db.Column(db.Boolean, default=False)

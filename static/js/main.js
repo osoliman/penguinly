@@ -1,5 +1,11 @@
 /* ─── Penguinly — main.js ─────────────────────────────────────────────────── */
 
+// ─── Theme init (runs ASAP via inline script in base.html, but also here as fallback)
+(function () {
+  var t = localStorage.getItem('theme') || 'sunset';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+
 // ─── Flash auto-dismiss ────────────────────────────────────────────────────────
 document.querySelectorAll('.flash').forEach(el => {
   setTimeout(() => {
@@ -9,6 +15,78 @@ document.querySelectorAll('.flash').forEach(el => {
     setTimeout(() => el.remove(), 400);
   }, 4000);
 });
+
+// ─── Sidebar collapse ─────────────────────────────────────────────────────────
+const sidebar = document.querySelector('.sidebar');
+const collapseBtn = document.getElementById('sidebar-collapse-btn');
+
+if (sidebar) {
+  // Restore saved state
+  if (localStorage.getItem('sidebarCollapsed') === '1') {
+    sidebar.classList.add('collapsed');
+  }
+
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed') ? '1' : '0');
+    });
+  }
+}
+
+// ─── Theme switcher (settings page) ──────────────────────────────────────────
+document.querySelectorAll('.theme-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    const theme = opt.dataset.theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    // Update radio/active state
+    document.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    // Sync hidden input if present
+    const input = document.getElementById('theme-input');
+    if (input) input.value = theme;
+  });
+});
+
+// Mark current theme option as active on settings page load
+(function () {
+  const current = document.documentElement.getAttribute('data-theme') || 'sunset';
+  const opt = document.querySelector(`.theme-option[data-theme="${current}"]`);
+  if (opt) opt.classList.add('active');
+  const input = document.getElementById('theme-input');
+  if (input) input.value = current;
+})();
+
+// ─── Article mode toggle ──────────────────────────────────────────────────────
+const articleToggle = document.getElementById('article-mode-toggle');
+if (articleToggle) {
+  articleToggle.addEventListener('change', () => {
+    const input = document.getElementById('article-mode-input');
+    if (input) input.value = articleToggle.checked ? '1' : '0';
+  });
+}
+
+// ─── EasyMDE init for article mode compose ────────────────────────────────────
+const mdTextarea = document.getElementById('md-editor');
+if (mdTextarea && typeof EasyMDE !== 'undefined') {
+  const easyMDE = new EasyMDE({
+    element: mdTextarea,
+    autofocus: false,
+    spellChecker: false,
+    placeholder: 'Write your article… supports **bold**, *italic*, `code`, > quotes, ==highlight==',
+    toolbar: [
+      'bold', 'italic', 'strikethrough', '|',
+      'heading-1', 'heading-2', 'heading-3', '|',
+      'quote', 'code', 'table', '|',
+      'unordered-list', 'ordered-list', '|',
+      'link', '|',
+      'preview', 'side-by-side', 'fullscreen',
+    ],
+    status: false,
+    minHeight: '200px',
+  });
+}
 
 // ─── Character counter for compose/post textarea ──────────────────────────────
 const composeArea = document.getElementById('compose-textarea');
@@ -38,19 +116,44 @@ document.querySelectorAll('.comment-toggle-btn').forEach(btn => {
   });
 });
 
+// ─── Inline comment edit ──────────────────────────────────────────────────────
+document.querySelectorAll('.comment-edit-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const commentId = btn.dataset.commentId;
+    const textEl = document.getElementById(`comment-text-${commentId}`);
+    const formEl = document.getElementById(`comment-edit-form-${commentId}`);
+    if (textEl && formEl) {
+      textEl.style.display = 'none';
+      formEl.style.display = 'flex';
+      const ta = formEl.querySelector('textarea');
+      if (ta) { ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length; }
+    }
+  });
+});
+
+document.querySelectorAll('.comment-edit-cancel').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const commentId = btn.dataset.commentId;
+    const textEl = document.getElementById(`comment-text-${commentId}`);
+    const formEl = document.getElementById(`comment-edit-form-${commentId}`);
+    if (textEl && formEl) {
+      textEl.style.display = '';
+      formEl.style.display = 'none';
+    }
+  });
+});
+
 // ─── Group chat polling ────────────────────────────────────────────────────────
 let lastGroupMsgId = 0;
 const chatMessages = document.getElementById('chat-messages');
 const groupId = document.body.dataset.groupId;
 
 if (chatMessages && groupId) {
-  // Set initial lastId from existing messages
   const msgs = chatMessages.querySelectorAll('[data-msg-id]');
   if (msgs.length) {
     lastGroupMsgId = parseInt(msgs[msgs.length - 1].dataset.msgId, 10) || 0;
   }
 
-  // Scroll to bottom initially
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
   function appendGroupMessage(msg) {
@@ -61,17 +164,17 @@ if (chatMessages && groupId) {
     if (!msg.is_own) {
       row.innerHTML = `
         <div class="avatar avatar-sm message-avatar"
-             style="background:${msg.avatar_color}">${msg.initials}</div>
+             style="background:${msg.avatar_color}">${escHtml(msg.initials)}</div>
         <div class="message-bubble-wrap">
           <span class="message-sender">${escHtml(msg.display_name)}</span>
           <div class="message-bubble">${escHtml(msg.content)}</div>
-          <span class="message-time">${msg.created_at}</span>
+          <span class="message-time">${escHtml(msg.created_at)}</span>
         </div>`;
     } else {
       row.innerHTML = `
         <div class="message-bubble-wrap">
           <div class="message-bubble">${escHtml(msg.content)}</div>
-          <span class="message-time">${msg.created_at}</span>
+          <span class="message-time">${escHtml(msg.created_at)}</span>
         </div>`;
     }
 
@@ -88,7 +191,7 @@ if (chatMessages && groupId) {
         appendGroupMessage(msg);
         if (msg.id > lastGroupMsgId) lastGroupMsgId = msg.id;
       });
-    } catch (_) { /* network error, retry next tick */ }
+    } catch (_) {}
   }
 
   setInterval(pollGroupMessages, 2500);
@@ -113,7 +216,7 @@ if (dmMessages && dmUserId) {
     bubble.innerHTML = `
       <div class="message-bubble-wrap">
         <div class="message-bubble">${escHtml(msg.content)}</div>
-        <span class="message-time">${msg.created_at}</span>
+        <span class="message-time">${escHtml(msg.created_at)}</span>
       </div>`;
     dmMessages.appendChild(bubble);
     dmMessages.scrollTop = dmMessages.scrollHeight;
@@ -208,7 +311,6 @@ document.querySelectorAll('textarea[data-autogrow]').forEach(ta => {
 
 // ─── Mobile sidebar toggle ────────────────────────────────────────────────────
 const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-const sidebar = document.querySelector('.sidebar');
 
 if (mobileMenuBtn && sidebar) {
   mobileMenuBtn.addEventListener('click', () => {
@@ -219,4 +321,32 @@ if (mobileMenuBtn && sidebar) {
       sidebar.classList.remove('mobile-open');
     }
   });
+}
+
+// ─── Image upload preview ─────────────────────────────────────────────────────
+const imageInput = document.getElementById('post-image-input');
+const imagePreview = document.getElementById('post-image-preview');
+const imagePreviewImg = document.getElementById('post-image-preview-img');
+const imageRemoveBtn = document.getElementById('post-image-remove');
+
+if (imageInput && imagePreview && imagePreviewImg) {
+  imageInput.addEventListener('change', () => {
+    const file = imageInput.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        imagePreviewImg.src = e.target.result;
+        imagePreview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  if (imageRemoveBtn) {
+    imageRemoveBtn.addEventListener('click', () => {
+      imageInput.value = '';
+      imagePreview.style.display = 'none';
+      imagePreviewImg.src = '';
+    });
+  }
 }
