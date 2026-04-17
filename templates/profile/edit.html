@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Edit Profile — Penguinly{% endblock %}
+
+{% block content %}
+<div style="max-width:520px;padding:28px 32px 48px;">
+
+  <div class="page-header" style="padding:0 0 24px;">
+    <div>
+      <div class="page-title">Edit Profile</div>
+      <div class="page-subtitle">How the community sees you</div>
+    </div>
+    <a href="{{ url_for('profile', username=current_user.username) }}" class="btn btn-ghost btn-sm">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+      Back
+    </a>
+  </div>
+
+  <div class="card">
+    <form method="POST" action="{{ url_for('edit_profile') }}" class="auth-form" style="gap:20px;">
+
+      <!-- Avatar preview -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px 0;">
+        <div id="avatar-color-preview"
+             class="avatar avatar-2xl"
+             style="background:{{ current_user.avatar_color }};">
+          {{ current_user.get_avatar_initials() }}
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);">Your avatar uses your initials</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <div class="form-input" style="background:rgba(0,0,0,.03);color:var(--text-muted);cursor:not-allowed;">
+          @{{ current_user.username }}
+        </div>
+        <span class="form-hint">Username cannot be changed.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="display_name">Display name</label>
+        <input class="form-input" type="text" id="display_name" name="display_name"
+               value="{{ current_user.display_name or '' }}"
+               placeholder="Your full name or nickname"
+               maxlength="100" autofocus>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="bio">Bio</label>
+        <textarea class="form-input" id="bio" name="bio"
+                  placeholder="Tell the community a little about yourself…"
+                  rows="3" maxlength="200">{{ current_user.bio or '' }}</textarea>
+        <span class="form-hint">Max 200 characters</span>
+      </div>
+
+      <!-- Colour picker -->
+      <div class="form-group">
+        <label class="form-label">Avatar colour</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="color" id="avatar-color-picker" name="avatar_color"
+                 value="{{ current_user.avatar_color }}"
+                 style="width:52px;height:40px;border:1.5px solid var(--border-medium);border-radius:var(--r-md);cursor:pointer;padding:2px;background:none;">
+          <!-- Presets -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            {% for color in ['#4F46E5','#EC4899','#10B981','#F59E0B','#3B82F6','#8B5CF6','#EF4444','#06B6D4','#14B8A6','#F97316'] %}
+              <div onclick="document.getElementById('avatar-color-picker').value='{{ color }}';document.getElementById('avatar-color-preview').style.background='{{ color }}';"
+                   style="width:24px;height:24px;border-radius:50%;background:{{ color }};cursor:pointer;transition:transform .15s;{% if color == current_user.avatar_color %}box-shadow:0 0 0 2px white,0 0 0 4px {{ color }};{% endif %}"
+                   onmouseover="this.style.transform='scale(1.18)'"
+                   onmouseout="this.style.transform='scale(1)'">
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:4px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Save changes
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const picker = document.getElementById('avatar-color-picker');
+  const preview = document.getElementById('avatar-color-preview');
+  const nameInput = document.getElementById('display_name');
+
+  picker.addEventListener('input', () => {
+    preview.style.background = picker.value;
+  });
+
+  function updateInitials() {
+    const name = nameInput.value.trim() || '{{ current_user.username }}';
+    const parts = name.split(' ');
+    preview.textContent = parts.length >= 2
+      ? parts[0][0].toUpperCase() + parts[1][0].toUpperCase()
+      : name.slice(0, 2).toUpperCase();
+  }
+
+  nameInput.addEventListener('input', updateInitials);
+</script>
+{% endblock %}

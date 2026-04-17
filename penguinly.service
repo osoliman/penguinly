@@ -1,0 +1,23 @@
+[Unit]
+Description=Penguinly Flask App (gunicorn)
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/penguinly
+EnvironmentFile=/home/ubuntu/penguinly/.env
+ExecStart=/home/ubuntu/penguinly/venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:8000 \
+    --access-logfile /var/log/penguinly/access.log \
+    --error-logfile /var/log/penguinly/error.log \
+    --timeout 120 \
+    wsgi:app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

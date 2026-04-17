@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Messages — Penguinly{% endblock %}
+{% block body_attrs %}{% if active_user %}data-dm-user-id="{{ active_user.id }}"{% endif %}{% endblock %}
+
+{% block content %}
+<div class="dm-shell">
+
+  <!-- ─── DM Sidebar ──────────────────────────────────────── -->
+  <div class="dm-sidebar card" style="padding:0;">
+
+    <div class="dm-sidebar-header">
+      <div class="dm-title">Messages</div>
+      <!-- New DM button -->
+      <div style="position:relative;">
+        <button onclick="this.nextElementSibling.classList.toggle('open')"
+                class="btn btn-ghost btn-sm btn-icon" title="New message">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <div class="new-dm-dropdown" style="display:none;position:absolute;right:0;top:38px;width:220px;background:var(--surface-glass-solid);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-md);z-index:200;padding:8px;max-height:280px;overflow-y:auto;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-muted);padding:4px 8px 8px;">Start a conversation</div>
+          {% for u in all_users %}
+            <a href="{{ url_for('dm_chat', user_id=u.id) }}"
+               style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:var(--r-md);text-decoration:none;color:inherit;transition:background .15s;"
+               onmouseover="this.style.background='rgba(79,70,229,.07)'"
+               onmouseout="this.style.background='transparent'">
+              <div class="avatar avatar-xs" style="background:{{ u.avatar_color }}">{{ u.get_avatar_initials() }}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ u.display_name }}</div>
+                <div style="font-size:11px;color:var(--text-muted);">@{{ u.username }}</div>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="dm-conversation-list">
+      {% if conversations %}
+        {% for convo in conversations %}
+          <a href="{{ url_for('dm_chat', user_id=convo.user.id) }}"
+             class="dm-conversation-item {% if active_user and active_user.id == convo.user.id %}active{% endif %}">
+            <div class="avatar avatar-sm {% if convo.user.is_online() %}avatar-online{% endif %}"
+                 style="background:{{ convo.user.avatar_color }}">
+              {{ convo.user.get_avatar_initials() }}
+            </div>
+            <div class="dm-convo-info">
+              <div class="dm-convo-name">{{ convo.user.display_name }}</div>
+              {% if convo.last_message %}
+                <div class="dm-convo-preview">
+                  {% if convo.last_message.sender_id == current_user.id %}You: {% endif %}
+                  {{ convo.last_message.content[:36] }}{% if convo.last_message.content|length > 36 %}…{% endif %}
+                </div>
+              {% endif %}
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+              {% if convo.last_message %}
+                <span class="dm-convo-time">{{ convo.last_message.created_at.strftime('%H:%M') }}</span>
+              {% endif %}
+              {% if convo.unread_count > 0 %}
+                <span class="nav-badge">{{ convo.unread_count }}</span>
+              {% endif %}
+            </div>
+          </a>
+        {% endfor %}
+      {% else %}
+        <div style="padding:32px 16px;text-align:center;color:var(--text-muted);">
+          <div style="font-size:28px;margin-bottom:8px;">💬</div>
+          <div style="font-size:13px;">No conversations yet.<br>Start one above!</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ─── Chat Area ───────────────────────────────────────── -->
+  {% if active_user %}
+    <div class="chat-panel card" style="padding:0;">
+
+      <!-- Header -->
+      <div class="chat-header">
+        <div class="avatar avatar-md {% if active_user.is_online() %}avatar-online{% endif %}"
+             style="background:{{ active_user.avatar_color }}">
+          {{ active_user.get_avatar_initials() }}
+        </div>
+        <div class="chat-group-info">
+          <div class="chat-group-name">
+            <a href="{{ url_for('profile', username=active_user.username) }}"
+               style="text-decoration:none;color:inherit;">{{ active_user.display_name }}</a>
+          </div>
+          <div class="chat-group-meta">
+            @{{ active_user.username }} ·
+            {% if active_user.is_online() %}
+              <span style="color:var(--green);font-weight:500;">● Online</span>
+            {% else %}
+              Last seen {{ active_user.last_seen.strftime('%-d %b at %H:%M') if active_user.last_seen else 'a while ago' }}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages" id="dm-messages">
+        {% if messages %}
+          {% for msg in messages %}
+            <div class="message-row {% if msg.sender_id == current_user.id %}own{% endif %}"
+                 data-msg-id="{{ msg.id }}">
+              <div class="message-bubble-wrap">
+                <div class="message-bubble">{{ msg.content }}</div>
+                <span class="message-time">
+                  {{ msg.created_at.strftime('%H:%M') }}
+                  {% if msg.sender_id == current_user.id %}
+                    {% if msg.is_read %}
+                      <span style="color:var(--accent);margin-left:2px;">✓✓</span>
+                    {% else %}
+                      <span style="color:var(--text-muted);margin-left:2px;">✓</span>
+                    {% endif %}
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <div class="empty-title">Start the conversation</div>
+            <div class="empty-desc">Say hello to {{ active_user.display_name }}!</div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-bar">
+        <form method="POST" action="{{ url_for('send_dm', user_id=active_user.id) }}" id="dm-form">
+          <div class="chat-input-wrap">
+            <input type="text" name="content" id="dm-input" class="chat-input"
+                   placeholder="Message {{ active_user.display_name }}…"
+                   autocomplete="off" required>
+            <button type="submit" class="chat-send-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+  {% else %}
+    <!-- Empty state -->
+    <div class="card" style="flex:1;display:flex;align-items:center;justify-content:center;">
+      <div class="dm-empty">
+        <div class="dm-empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div style="font-size:16px;font-weight:700;color:var(--text-primary);">Your messages</div>
+        <div style="font-size:13px;text-align:center;max-width:220px;line-height:1.5;">
+          Select a conversation or start a new one with the <strong>+</strong> button.
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  {% if active_user %}
+  document.getElementById('dm-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('dm-form').submit();
+    }
+  });
+  {% endif %}
+  // Close new DM dropdown on outside click
+  document.addEventListener('click', function(e) {
+    document.querySelectorAll('.new-dm-dropdown.open').forEach(d => {
+      if (!d.previousElementSibling.contains(e.target) && !d.contains(e.target)) {
+        d.classList.remove('open');
+      }
+    });
+  });
+  document.querySelectorAll('.new-dm-dropdown').forEach(d => {
+    d.style.display = '';
+    d.style.removeProperty('display');
+  });
+  // Toggle open/close via display
+  document.querySelectorAll('button[onclick]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const dd = this.nextElementSibling;
+      if (dd && dd.classList.contains('new-dm-dropdown')) {
+        dd.style.display = dd.style.display === 'block' ? 'none' : 'block';
+      }
+    });
+    btn.removeAttribute('onclick');
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Public Square — Penguinly{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Public Square</div>
+    <div class="page-subtitle">What's on everyone's mind today</div>
+  </div>
+</div>
+
+<div class="square-layout">
+
+  <!-- ─── Feed column ─────────────────────────────────────── -->
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+
+    <!-- Compose -->
+    <div class="card">
+      <form method="POST" action="{{ url_for('create_post') }}">
+        <div class="compose-box">
+          <div class="avatar avatar-md" style="background:{{ current_user.avatar_color }};flex-shrink:0;">
+            {{ current_user.get_avatar_initials() }}
+          </div>
+          <div class="compose-input-wrap">
+            <textarea
+              id="compose-textarea"
+              name="content"
+              class="compose-textarea"
+              placeholder="Share something with the community…"
+              rows="3"
+              maxlength="500"
+              required
+            ></textarea>
+            <div class="compose-footer">
+              <span id="char-counter" class="char-counter">0 / 500</span>
+              <button type="submit" class="btn btn-primary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                Post
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Posts feed -->
+    <div class="card" style="padding:0;">
+      {% if posts %}
+        {% for post in posts %}
+          <div class="post-card">
+            <!-- Header -->
+            <div class="post-header">
+              <a href="{{ url_for('profile', username=post.author.username) }}">
+                <div class="avatar avatar-sm" style="background:{{ post.author.avatar_color }}">
+                  {{ post.author.get_avatar_initials() }}
+                </div>
+              </a>
+              <div>
+                <a href="{{ url_for('profile', username=post.author.username) }}"
+                   style="text-decoration:none;">
+                  <div class="post-author-name">{{ post.author.display_name }}</div>
+                  <div class="post-author-handle">@{{ post.author.username }}</div>
+                </a>
+              </div>
+              <span class="post-time">
+                {{ post.created_at.strftime('%-d %b') }}
+              </span>
+            </div>
+
+            <!-- Content -->
+            <div class="post-content">{{ post.content }}</div>
+
+            <!-- Actions -->
+            <div class="post-actions">
+              <!-- Like -->
+              <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" style="display:inline;">
+                <input type="hidden" name="reaction_type" value="like">
+                {% set user_rxn = post.user_reaction(current_user.id) %}
+                <button type="submit"
+                  class="reaction-btn {% if user_rxn and user_rxn.reaction_type == 'like' %}active-like{% endif %}">
+                  <svg viewBox="0 0 24 24" fill="{% if user_rxn and user_rxn.reaction_type == 'like' %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="2">
+                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+                    <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                  </svg>
+                  {{ post.like_count() }}
+                </button>
+              </form>
+
+              <!-- Heart -->
+              <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" style="display:inline;">
+                <input type="hidden" name="reaction_type" value="heart">
+                <button type="submit"
+                  class="reaction-btn {% if user_rxn and user_rxn.reaction_type == 'heart' %}active-heart{% endif %}">
+                  <svg viewBox="0 0 24 24" fill="{% if user_rxn and user_rxn.reaction_type == 'heart' %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                  {{ post.heart_count() }}
+                </button>
+              </form>
+
+              <!-- Comments toggle -->
+              <button
+                class="reaction-btn comment-toggle-btn comment-toggle"
+                data-post-id="{{ post.id }}"
+                aria-expanded="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                {{ post.comment_count() }}
+              </button>
+
+              <!-- Follow (if not own post) -->
+              {% if post.author.id != current_user.id %}
+                <form method="POST" action="{{ url_for('follow_user', user_id=post.author.id) }}"
+                      style="display:inline;margin-left:auto;">
+                  <button type="submit" class="reaction-btn" style="color:{% if current_user.is_following(post.author) %}var(--accent){% else %}var(--text-muted){% endif %};">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="8.5" cy="7" r="4"/>
+                      <line x1="20" y1="8" x2="20" y2="14"/>
+                      <line x1="23" y1="11" x2="17" y2="11"/>
+                    </svg>
+                    {% if current_user.is_following(post.author) %}Following{% else %}Follow{% endif %}
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+
+            <!-- Comments section -->
+            <div class="comments-section" id="comments-{{ post.id }}">
+              {% for comment in post.comments %}
+                <div class="comment-item">
+                  <div class="avatar avatar-xs" style="background:{{ comment.author.avatar_color }}">
+                    {{ comment.author.get_avatar_initials() }}
+                  </div>
+                  <div class="comment-body">
+                    <div class="comment-author">{{ comment.author.display_name }}</div>
+                    <div class="comment-text">{{ comment.content }}</div>
+                  </div>
+                </div>
+              {% endfor %}
+
+              <form method="POST" action="{{ url_for('comment_post', post_id=post.id) }}"
+                    class="comment-compose" style="margin-top:8px;">
+                <div class="avatar avatar-xs" style="background:{{ current_user.avatar_color }}">
+                  {{ current_user.get_avatar_initials() }}
+                </div>
+                <input type="text" name="content" class="comment-input"
+                       placeholder="Write a comment…" required>
+                <button type="submit" class="btn btn-primary btn-sm">Reply</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </div>
+          <div class="empty-title">The Square is quiet</div>
+          <div class="empty-desc">Be the first to post something to the community!</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ─── Right sidebar ────────────────────────────────────── -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Who to follow -->
+    {% if suggested %}
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="widget-title">People to follow</div>
+        {% for user in suggested %}
+          <div class="suggest-user">
+            <div class="avatar avatar-sm" style="background:{{ user.avatar_color }}">
+              {{ user.get_avatar_initials() }}
+            </div>
+            <div class="suggest-user-info">
+              <a href="{{ url_for('profile', username=user.username) }}"
+                 class="suggest-user-name" style="color:var(--text-primary);">
+                {{ user.display_name }}
+              </a>
+              <div class="suggest-user-handle">@{{ user.username }}</div>
+            </div>
+            <form method="POST" action="{{ url_for('follow_user', user_id=user.id) }}">
+              <button type="submit" class="btn btn-ghost btn-sm">Follow</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- My groups quick access -->
+    {% if my_groups %}
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="widget-title">My Groups</div>
+        {% for group in my_groups[:4] %}
+          <a href="{{ url_for('view_group', group_id=group.id) }}"
+             style="display:flex;align-items:center;gap:10px;padding:10px 16px;text-decoration:none;color:inherit;transition:background .15s;"
+             onmouseover="this.style.background='rgba(255,255,255,.4)'"
+             onmouseout="this.style.background='transparent'">
+            <div class="group-icon" style="background:{{ group.cover_color }};width:32px;height:32px;font-size:12px;border-radius:8px;">
+              {{ group.name[:1].upper() }}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ group.name }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">{{ group.member_count() }} members</div>
+            </div>
+          </a>
+        {% endfor %}
+        <div style="padding:10px 16px;border-top:1px solid var(--border-subtle);">
+          <a href="{{ url_for('groups') }}" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;">
+            View all groups
+          </a>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- About card -->
+    <div class="card card-body" style="font-size:12px;color:var(--text-muted);line-height:1.6;">
+      <div style="font-weight:700;color:var(--text-secondary);margin-bottom:6px;">About Penguinly</div>
+      An exclusive social platform for small, tight-knit communities of 6–19 people. Share openly, connect deeply.
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Notifications — Penguinly{% endblock %}
+
+{% block content %}
+<div style="max-width:640px;padding:28px 32px 48px;">
+
+  <div class="page-header" style="padding:0 0 20px;">
+    <div>
+      <div class="page-title">Notifications</div>
+      <div class="page-subtitle">Your latest activity</div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;">
+    {% if notifications %}
+      <div class="notifications-list">
+        {% for n in notifications %}
+          <div class="notif-item {% if not n.is_read %}unread{% endif %}">
+            <div class="notif-icon"
+                 style="background:{% if n.type == 'invite' %}var(--accent-bg){% elif n.type == 'heart' or n.type == 'reaction' %}var(--pink-bg){% elif n.type == 'follow' %}var(--green-bg){% elif n.type == 'dm' %}var(--accent-bg){% else %}var(--amber-bg){% endif %};">
+              {% if n.type == 'invite' %}🎉
+              {% elif n.type == 'reaction' %}👍
+              {% elif n.type == 'heart' %}❤️
+              {% elif n.type == 'follow' %}✨
+              {% elif n.type == 'dm' %}💬
+              {% elif n.type == 'comment' %}💭
+              {% else %}🔔
+              {% endif %}
+            </div>
+            <div class="notif-body">
+              <div class="notif-text">{{ n.message }}</div>
+              <div class="notif-time">{{ n.created_at.strftime('%-d %b at %H:%M') }}</div>
+            </div>
+            {% if not n.is_read %}
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:4px;"></div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <div class="empty-title">All caught up!</div>
+        <div class="empty-desc">No new notifications. Start interacting with the community.</div>
+        <a href="{{ url_for('square') }}" class="btn btn-primary">Go to Square</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

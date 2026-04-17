@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} — Penguinly{% endblock %}
+{% block body_attrs %}data-group-id="{{ group.id }}"{% endblock %}
+
+{% block content %}
+<div class="group-shell">
+
+  <!-- ─── Chat Panel ───────────────────────────────────────── -->
+  <div class="chat-panel card" style="padding:0;">
+
+    <!-- Chat header -->
+    <div class="chat-header">
+      <div class="group-icon" style="background:{{ group.cover_color }};width:38px;height:38px;font-size:14px;border-radius:10px;flex-shrink:0;">
+        {{ group.name[:1].upper() }}
+      </div>
+      <div class="chat-group-info">
+        <div class="chat-group-name">{{ group.name }}</div>
+        <div class="chat-group-meta">
+          {{ group.member_count() }} members
+          {% if group.is_private %}· <span style="color:var(--accent);">Private</span>{% endif %}
+          {% if group.description %}· {{ group.description[:50] }}{% if group.description|length > 50 %}…{% endif %}{% endif %}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        {% if is_admin %}
+          <span class="tag tag-accent">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Admin
+          </span>
+        {% endif %}
+        <a href="{{ url_for('groups') }}" class="btn btn-ghost btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+          All groups
+        </a>
+        <form method="POST" action="{{ url_for('leave_group', group_id=group.id) }}"
+              onsubmit="return confirm('Leave {{ group.name }}?')">
+          <button type="submit" class="btn btn-danger btn-sm">Leave</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" id="chat-messages">
+      {% if messages %}
+        {% set ns = namespace(last_user=None) %}
+        {% for msg in messages %}
+          {% set is_own = msg.user_id == current_user.id %}
+          <div class="message-row {% if is_own %}own{% endif %}" data-msg-id="{{ msg.id }}">
+            {% if not is_own %}
+              {% if ns.last_user != msg.user_id %}
+                <div class="avatar avatar-sm message-avatar"
+                     style="background:{{ msg.author.avatar_color }}">
+                  {{ msg.author.get_avatar_initials() }}
+                </div>
+              {% else %}
+                <div style="width:32px;flex-shrink:0;"></div>
+              {% endif %}
+            {% endif %}
+
+            <div class="message-bubble-wrap">
+              {% if not is_own and ns.last_user != msg.user_id %}
+                <span class="message-sender">{{ msg.author.display_name }}</span>
+              {% endif %}
+
+              <div class="message-bubble">{{ msg.content }}</div>
+
+              <!-- Reaction pills -->
+              {% set rcounts = msg.reaction_counts() %}
+              {% if rcounts.like > 0 or rcounts.heart > 0 %}
+                <div class="message-reactions">
+                  {% if rcounts.like > 0 %}
+                    <form method="POST" action="{{ url_for('react_message', group_id=group.id, message_id=msg.id) }}" style="display:inline;">
+                      <input type="hidden" name="reaction_type" value="like">
+                      <button type="submit" class="msg-reaction-pill">👍 {{ rcounts.like }}</button>
+                    </form>
+                  {% endif %}
+                  {% if rcounts.heart > 0 %}
+                    <form method="POST" action="{{ url_for('react_message', group_id=group.id, message_id=msg.id) }}" style="display:inline;">
+                      <input type="hidden" name="reaction_type" value="heart">
+                      <button type="submit" class="msg-reaction-pill">❤️ {{ rcounts.heart }}</button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+              <!-- Hover react bar -->
+              <div class="message-react-bar" style="margin-top:4px;">
+                <form method="POST" action="{{ url_for('react_message', group_id=group.id, message_id=msg.id) }}" style="display:inline;">
+                  <input type="hidden" name="reaction_type" value="like">
+                  <button type="submit" class="message-react-btn" title="Like">👍</button>
+                </form>
+                <form method="POST" action="{{ url_for('react_message', group_id=group.id, message_id=msg.id) }}" style="display:inline;">
+                  <input type="hidden" name="reaction_type" value="heart">
+                  <button type="submit" class="message-react-btn" title="Heart">❤️</button>
+                </form>
+              </div>
+
+              <span class="message-time">{{ msg.created_at.strftime('%H:%M') }}</span>
+            </div>
+          </div>
+          {% set ns.last_user = msg.user_id %}
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" style="padding:60px 24px;">
+          <div class="empty-icon">💬</div>
+          <div class="empty-title">No messages yet</div>
+          <div class="empty-desc">Be the first to say something in {{ group.name }}!</div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Input bar -->
+    <div class="chat-input-bar">
+      <form method="POST" action="{{ url_for('send_group_message', group_id=group.id) }}"
+            id="chat-form">
+        <div class="chat-input-wrap">
+          <input
+            type="text"
+            name="content"
+            id="chat-input"
+            class="chat-input"
+            placeholder="Message {{ group.name }}…"
+            autocomplete="off"
+            required
+          >
+          <button type="submit" class="chat-send-btn" title="Send">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── Members Panel ───────────────────────────────────── -->
+  <div class="members-panel card" style="padding:0;">
+
+    <div class="members-header">
+      <div class="members-title">Members</div>
+      <div class="members-count">{{ group.member_count() }} / {{ group.max_members }}</div>
+      <!-- Capacity bar -->
+      <div style="margin-top:8px;height:4px;background:var(--border-medium);border-radius:var(--r-full);overflow:hidden;">
+        <div style="height:100%;width:{{ (group.member_count() / group.max_members * 100)|int }}%;background:linear-gradient(90deg,var(--accent),var(--pink));border-radius:var(--r-full);transition:width .3s;"></div>
+      </div>
+    </div>
+
+    <div class="members-list">
+      {% for membership in members %}
+        {% set u = membership.user %}
+        <div class="member-row">
+          <div class="avatar avatar-sm {% if u.is_online() %}avatar-online{% endif %}"
+               style="background:{{ u.avatar_color }}">
+            {{ u.get_avatar_initials() }}
+          </div>
+          <div class="member-info">
+            <a href="{{ url_for('profile', username=u.username) }}"
+               class="member-name" style="color:var(--text-primary);text-decoration:none;">
+              {{ u.display_name }}
+            </a>
+            <div class="member-handle">@{{ u.username }}</div>
+          </div>
+          {% if membership.role == 'admin' %}
+            <span class="member-badge badge-admin">Admin</span>
+          {% endif %}
+          {% if is_admin and u.id != current_user.id %}
+            <form method="POST"
+                  action="{{ url_for('remove_group_member', group_id=group.id, user_id=u.id) }}"
+                  onsubmit="return confirm('Remove {{ u.display_name }} from the group?')">
+              <button type="submit" class="btn btn-icon btn-danger" title="Remove member"
+                      style="width:26px;height:26px;padding:0;font-size:14px;border-radius:6px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Invite section (admin only) -->
+    {% if is_admin and group.can_join() %}
+      <div class="invite-form-section">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">
+          Invite someone
+        </div>
+        <form method="POST" action="{{ url_for('invite_to_group', group_id=group.id) }}">
+          {% if invitable_users %}
+            <input
+              type="text"
+              id="invite-search"
+              class="form-input"
+              placeholder="Search users…"
+              style="margin-bottom:8px;border-radius:var(--r-md);"
+              autocomplete="off"
+            >
+            <select name="user_id" id="invite-select" class="invite-select" required size="4">
+              {% for u in invitable_users %}
+                <option value="{{ u.id }}">{{ u.display_name }} (@{{ u.username }})</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Send Invitation
+            </button>
+          {% else %}
+            <p style="font-size:12px;color:var(--text-muted);text-align:center;">
+              All users have been invited or are already members.
+            </p>
+          {% endif %}
+        </form>
+      </div>
+    {% elif not group.can_join() %}
+      <div style="padding:12px 16px;border-top:1px solid var(--border-subtle);">
+        <div class="tag tag-pink" style="width:100%;justify-content:center;">
+          Group is full ({{ group.max_members }} members)
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Submit chat on Enter (not Shift+Enter)
+  document.getElementById('chat-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('chat-form').submit();
+    }
+  });
+</script>
+{% endblock %}
