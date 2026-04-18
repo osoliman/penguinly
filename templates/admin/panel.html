@@ -123,7 +123,6 @@
             <div class="admin-actions">
 
               <form action="{{ url_for('admin_reset_password', user_id=u.id) }}" method="POST" class="admin-action-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="admin-btn admin-btn-reset" title="Reset password (shown once)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
@@ -133,7 +132,6 @@
               </form>
 
               <form action="{{ url_for('admin_send_captcha', user_id=u.id) }}" method="POST" class="admin-action-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="admin-btn admin-btn-captcha" title="Flag for CAPTCHA on next login">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -145,7 +143,6 @@
 
               {% if u.is_banned %}
               <form action="{{ url_for('admin_unban_user', user_id=u.id) }}" method="POST" class="admin-action-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="admin-btn admin-btn-unban" title="Lift ban and clear flags">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
@@ -155,7 +152,6 @@
               </form>
               {% else %}
               <form action="{{ url_for('admin_ban_user', user_id=u.id) }}" method="POST" class="admin-action-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="admin-btn admin-btn-ban" title="Ban this user">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
@@ -166,7 +162,6 @@
               {% endif %}
 
               <form action="{{ url_for('admin_delete_user', user_id=u.id) }}" method="POST" class="admin-action-form" onsubmit="return confirm('Permanently delete @{{ u.username }} and all their data? This cannot be undone.');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="admin-btn admin-btn-delete" title="Delete user and all data">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
