@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}#{{ tag }} — Penguinly{% endblock %}
+
+{% block content %}
+<div style="max-width:640px;padding:28px 32px 64px;">
+
+  <div class="page-header" style="padding:0 0 20px;">
+    <div>
+      <div class="page-title">
+        <span class="hashtag" style="font-size:inherit;">#{{ tag }}</span>
+      </div>
+      <div class="page-subtitle">
+        {{ posts|length }} post{{ 's' if posts|length != 1 else '' }} with this tag
+      </div>
+    </div>
+    <a href="{{ url_for('square') }}" class="btn btn-ghost btn-sm">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+      Back to Square
+    </a>
+  </div>
+
+  <div class="card" style="padding:0;">
+    {% if posts %}
+      {% for post in posts %}
+        <div class="post-card">
+          <div class="post-header">
+            <a href="{{ url_for('profile', username=post.author.username) }}">
+              <div class="avatar avatar-sm" style="background:{{ post.author.avatar_color }}">
+                {{ post.author.get_avatar_initials() }}
+              </div>
+            </a>
+            <div style="flex:1;min-width:0;">
+              <a href="{{ url_for('profile', username=post.author.username) }}" style="text-decoration:none;">
+                <div class="post-author-name">{{ post.author.display_name }}</div>
+                <div class="post-author-handle">@{{ post.author.username }}</div>
+              </a>
+            </div>
+            <span class="post-time">{{ post.created_at.strftime('%-d %b') }}</span>
+          </div>
+
+          {% if post.is_markdown %}
+            <div class="post-content markdown">{{ post.content | md }}</div>
+          {% else %}
+            <div class="post-content">{{ post.content | linkify }}</div>
+          {% endif %}
+
+          {% if post.image_filename %}
+            <div style="padding:0 20px 12px;">
+              <img src="{{ url_for('static', filename='uploads/' ~ post.image_filename) }}"
+                   alt="Post image"
+                   style="width:100%;max-height:400px;object-fit:cover;border-radius:var(--r-lg);border:1px solid var(--border-subtle);">
+            </div>
+          {% endif %}
+
+          <div class="post-actions">
+            <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" style="display:inline;">
+              <input type="hidden" name="reaction_type" value="like">
+              {% set user_rxn = post.user_reaction(current_user.id) %}
+              <button type="submit" class="reaction-btn {% if user_rxn and user_rxn.reaction_type == 'like' %}active-like{% endif %}">
+                <svg viewBox="0 0 24 24" fill="{% if user_rxn and user_rxn.reaction_type == 'like' %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="2">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+                  <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                </svg>
+                {{ post.like_count() }}
+              </button>
+            </form>
+            <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" style="display:inline;">
+              <input type="hidden" name="reaction_type" value="heart">
+              <button type="submit" class="reaction-btn {% if user_rxn and user_rxn.reaction_type == 'heart' %}active-heart{% endif %}">
+                <svg viewBox="0 0 24 24" fill="{% if user_rxn and user_rxn.reaction_type == 'heart' %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                {{ post.heart_count() }}
+              </button>
+            </form>
+            <a href="{{ url_for('square') }}#post-{{ post.id }}" class="reaction-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              {{ post.comment_count() }}
+            </a>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/>
+            <line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>
+          </svg>
+        </div>
+        <div class="empty-title">No posts with #{{ tag }}</div>
+        <div class="empty-desc">Be the first to use this hashtag!</div>
+        <a href="{{ url_for('square') }}" class="btn btn-primary">Go to Square</a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

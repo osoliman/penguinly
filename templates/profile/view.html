@@ -155,7 +155,7 @@
             {% if post.is_markdown %}
               <div class="post-content markdown">{{ post.content | md }}</div>
             {% else %}
-              <div class="post-content">{{ post.content }}</div>
+              <div class="post-content">{{ post.content | linkify }}</div>
             {% endif %}
 
             {% if post.image_filename %}

@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import hashlib
 from datetime import datetime
@@ -71,6 +72,24 @@ def create_app(config_name=None):
                 db.session.rollback()
 
     # ─── Jinja2 filter ───────────────────────────────────────────────────────
+
+    @app.template_filter('linkify')
+    def linkify_filter(text):
+        """Convert @mentions and #hashtags to clickable links (safe HTML)."""
+        if not text:
+            return Markup('')
+        safe = str(escape(text))
+        safe = re.sub(
+            r'@([a-zA-Z0-9._]{3,50})',
+            r'<a href="/u/\1" class="mention">@\1</a>',
+            safe,
+        )
+        safe = re.sub(
+            r'#([a-zA-Z0-9_]{1,50})',
+            r'<a href="/tag/\1" class="hashtag">#\1</a>',
+            safe,
+        )
+        return Markup(safe)
 
     @app.template_filter('md')
     def markdown_filter(text):
@@ -198,7 +217,7 @@ def create_app(config_name=None):
             if theme not in ('sunset', 'bw', 'natural'):
                 theme = 'sunset'
             current_user.theme = theme
-            current_user.article_mode = request.form.get('article_mode') == 'on'
+            current_user.article_mode = request.form.get('article_mode') == '1'
             db.session.commit()
             flash('Settings saved.', 'success')
         return render_template('settings.html')
@@ -240,6 +259,16 @@ def create_app(config_name=None):
             image_filename=image_filename,
         )
         db.session.add(post)
+        db.session.flush()
+        # @mention notifications
+        for username in set(re.findall(r'@([a-zA-Z0-9._]{3,50})', content)):
+            mentioned = User.query.filter_by(username=username.lower()).first()
+            if mentioned and mentioned.id != current_user.id:
+                db.session.add(Notification(
+                    user_id=mentioned.id, type='mention',
+                    message=f'{current_user.display_name} mentioned you in a post.',
+                    related_id=post.id,
+                ))
         db.session.commit()
         return redirect(url_for('square'))
 
@@ -287,15 +316,25 @@ def create_app(config_name=None):
         post = Post.query.get_or_404(post_id)
         content = request.form.get('content', '').strip()
         if content:
-            db.session.add(Comment(
+            comment = Comment(
                 post_id=post_id, user_id=current_user.id, content=content
-            ))
+            )
+            db.session.add(comment)
             if post.user_id != current_user.id:
                 db.session.add(Notification(
                     user_id=post.user_id, type='comment',
                     message=f'{current_user.display_name} commented on your post.',
                     related_id=post_id,
                 ))
+            # @mention notifications in comment
+            for username in set(re.findall(r'@([a-zA-Z0-9._]{3,50})', content)):
+                mentioned = User.query.filter_by(username=username.lower()).first()
+                if mentioned and mentioned.id != current_user.id and mentioned.id != post.user_id:
+                    db.session.add(Notification(
+                        user_id=mentioned.id, type='mention',
+                        message=f'{current_user.display_name} mentioned you in a comment.',
+                        related_id=post_id,
+                    ))
             db.session.commit()
         return redirect(request.referrer or url_for('square'))
 
@@ -664,6 +703,25 @@ def create_app(config_name=None):
             return redirect(url_for('profile', username=current_user.username))
         return render_template('profile/edit.html')
 
+    # ─── @mention shorthand URL ───────────────────────────────────────────────
+
+    @app.route('/u/<username>')
+    @login_required
+    def mention_redirect(username):
+        return redirect(url_for('profile', username=username))
+
+    # ─── #Hashtag page ────────────────────────────────────────────────────────
+
+    @app.route('/tag/<tag>')
+    @login_required
+    def hashtag(tag):
+        tag_clean = re.sub(r'[^a-zA-Z0-9_]', '', tag).lower()
+        posts = Post.query.filter(
+            Post.content.ilike(f'%#{tag_clean}%'),
+            Post.post_type == 'public',
+        ).order_by(Post.created_at.desc()).limit(60).all()
+        return render_template('tag.html', tag=tag_clean, posts=posts)
+
     # ─── Notifications ────────────────────────────────────────────────────────
 
     @app.route('/notifications')
@@ -729,6 +787,38 @@ def create_app(config_name=None):
             'is_own': m.sender_id == current_user.id,
             'created_at': m.created_at.strftime('%H:%M'),
         } for m in msgs])
+
+    @app.route('/api/users/search')
+    @login_required
+    def api_users_search():
+        q = request.args.get('q', '').strip().lower()
+        if not q:
+            return jsonify([])
+        users = User.query.filter(
+            User.username.ilike(f'{q}%')
+        ).limit(8).all()
+        return jsonify([{
+            'username': u.username,
+            'display_name': u.display_name,
+            'avatar_color': u.avatar_color,
+            'initials': u.get_avatar_initials(),
+        } for u in users])
+
+    @app.route('/api/hashtags/search')
+    @login_required
+    def api_hashtags_search():
+        q = request.args.get('q', '').strip().lower()
+        if not q:
+            return jsonify([])
+        recent = Post.query.filter(
+            Post.content.ilike(f'%#{q}%')
+        ).order_by(Post.created_at.desc()).limit(100).all()
+        tags = set()
+        for post in recent:
+            for match in re.findall(r'#([a-zA-Z0-9_]{1,50})', post.content):
+                if match.lower().startswith(q):
+                    tags.add(match.lower())
+        return jsonify(sorted(list(tags))[:8])
 
     @app.route('/api/badge-counts')
     @login_required

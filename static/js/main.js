@@ -323,6 +323,182 @@ if (mobileMenuBtn && sidebar) {
   });
 }
 
+// ─── @mention / #hashtag autocomplete ────────────────────────────────────────
+(function () {
+  // Shared dropdown element (lazily created)
+  let dropdown = null;
+  let activeTarget = null;
+  let triggerStart = -1;
+  let triggerChar = '';
+
+  function getOrCreateDropdown() {
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.className = 'autocomplete-dropdown';
+      dropdown.style.display = 'none';
+      document.body.appendChild(dropdown);
+    }
+    return dropdown;
+  }
+
+  function hideDropdown() {
+    if (dropdown) dropdown.style.display = 'none';
+    activeTarget = null;
+    triggerStart = -1;
+    triggerChar = '';
+  }
+
+  function positionDropdown(textarea) {
+    const rect = textarea.getBoundingClientRect();
+    dropdown.style.left = `${rect.left + window.scrollX}px`;
+    dropdown.style.top = `${rect.bottom + window.scrollY + 4}px`;
+    dropdown.style.width = `${Math.min(rect.width, 260)}px`;
+  }
+
+  function renderDropdown(items, onSelect) {
+    const dd = getOrCreateDropdown();
+    dd.innerHTML = '';
+    if (!items.length) { hideDropdown(); return; }
+
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'autocomplete-item';
+      row.innerHTML = item.html;
+      row.addEventListener('mousedown', e => {
+        e.preventDefault();
+        onSelect(item.value);
+        hideDropdown();
+      });
+      dd.appendChild(row);
+    });
+
+    dd.style.display = 'block';
+    positionDropdown(activeTarget);
+  }
+
+  async function fetchMentions(q) {
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.map(u => ({
+        value: u.username,
+        html: `<span class="ac-avatar" style="background:${u.avatar_color}">${escHtml(u.initials)}</span>
+               <span class="ac-name">${escHtml(u.display_name)}</span>
+               <span class="ac-handle">@${escHtml(u.username)}</span>`,
+      }));
+    } catch (_) { return []; }
+  }
+
+  async function fetchHashtags(q) {
+    try {
+      const res = await fetch(`/api/hashtags/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.map(tag => ({
+        value: tag,
+        html: `<span class="hashtag ac-tag">#${escHtml(tag)}</span>`,
+      }));
+    } catch (_) { return []; }
+  }
+
+  function insertCompletion(textarea, value) {
+    const text = textarea.value;
+    const before = text.slice(0, triggerStart) + triggerChar + value;
+    const after = text.slice(textarea.selectionStart);
+    textarea.value = before + (after.startsWith(' ') ? '' : ' ') + after;
+    const pos = before.length + (after.startsWith(' ') ? 0 : 1);
+    textarea.setSelectionRange(pos, pos);
+    textarea.focus();
+  }
+
+  let debounceTimer = null;
+
+  function onInput(e) {
+    const ta = e.target;
+    const pos = ta.selectionStart;
+    const text = ta.value.slice(0, pos);
+
+    // Find the last @ or # before cursor with no spaces since it
+    const atMatch = text.match(/@([a-zA-Z0-9._]*)$/);
+    const hashMatch = text.match(/#([a-zA-Z0-9_]*)$/);
+
+    if (atMatch && atMatch[1].length >= 0) {
+      triggerChar = '@';
+      triggerStart = pos - atMatch[1].length - 1;
+      const q = atMatch[1];
+      activeTarget = ta;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        const items = await fetchMentions(q);
+        if (activeTarget === ta) renderDropdown(items, val => insertCompletion(ta, val));
+      }, 150);
+    } else if (hashMatch && hashMatch[1].length >= 1) {
+      triggerChar = '#';
+      triggerStart = pos - hashMatch[1].length - 1;
+      const q = hashMatch[1];
+      activeTarget = ta;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        const items = await fetchHashtags(q);
+        if (activeTarget === ta) renderDropdown(items, val => insertCompletion(ta, val));
+      }, 150);
+    } else {
+      hideDropdown();
+    }
+  }
+
+  function onKeydown(e) {
+    if (!dropdown || dropdown.style.display === 'none') return;
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    const active = dropdown.querySelector('.autocomplete-item.active');
+    let idx = Array.from(items).indexOf(active);
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (active) active.classList.remove('active');
+      items[Math.min(idx + 1, items.length - 1)].classList.add('active');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (active) active.classList.remove('active');
+      items[Math.max(idx - 1, 0)].classList.add('active');
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      const sel = dropdown.querySelector('.autocomplete-item.active') || items[0];
+      if (sel) {
+        e.preventDefault();
+        sel.dispatchEvent(new Event('mousedown'));
+      }
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  }
+
+  // Attach to all textareas and text inputs (now and on future DOM mutations)
+  function attachTo(el) {
+    if (el._acAttached) return;
+    el._acAttached = true;
+    el.addEventListener('input', onInput);
+    el.addEventListener('keydown', onKeydown);
+    el.addEventListener('blur', () => setTimeout(hideDropdown, 150));
+  }
+
+  document.querySelectorAll('textarea, input[type="text"]').forEach(attachTo);
+
+  // Also handle dynamically added inputs (e.g. comment boxes)
+  new MutationObserver(mutations => {
+    mutations.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType !== 1) return;
+      if (n.matches('textarea, input[type="text"]')) attachTo(n);
+      n.querySelectorAll && n.querySelectorAll('textarea, input[type="text"]').forEach(attachTo);
+    }));
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // Close on outside click
+  document.addEventListener('mousedown', e => {
+    if (dropdown && !dropdown.contains(e.target)) hideDropdown();
+  });
+})();
+
 // ─── Image upload preview ─────────────────────────────────────────────────────
 const imageInput = document.getElementById('post-image-input');
 const imagePreview = document.getElementById('post-image-preview');
