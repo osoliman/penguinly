@@ -43,6 +43,46 @@
     </div>
 
     <div class="card">
+      {% if captcha_step %}
+      {# ── CAPTCHA challenge step ── #}
+      <form method="POST" action="{{ url_for('login') }}" class="auth-form">
+        <input type="hidden" name="captcha_step" value="1">
+
+        <div style="text-align:center;padding:8px 0 18px;">
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--accent-bg);margin-bottom:12px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+          </div>
+          <p style="font-size:0.9rem;font-weight:700;color:var(--text-primary);margin:0 0 4px;">Security check</p>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin:0;">Answer the question below to continue</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">What is {{ captcha_q }}?</label>
+          <input
+            class="form-input"
+            type="number"
+            name="captcha_answer"
+            placeholder="Enter the answer"
+            required
+            autofocus
+            style="text-align:center;font-size:1.1rem;font-weight:700;letter-spacing:2px;"
+          >
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:4px;">
+          Verify &amp; sign in
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
+      </form>
+
+      {% else %}
+      {# ── Normal login step ── #}
       <form method="POST" action="{{ url_for('login') }}" class="auth-form">
         <div class="form-group">
           <label class="form-label" for="username">Username</label>
@@ -91,6 +131,7 @@
         New to Penguinly?
         <a href="{{ url_for('register') }}" class="auth-link">Create an account</a>
       </div>
+      {% endif %}
     </div>
 
     <p style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:20px;">

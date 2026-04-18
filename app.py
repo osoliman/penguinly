@@ -1,10 +1,12 @@
 import os
 import re
+import random
+import secrets
 import uuid
 import hashlib
 from datetime import datetime
 from flask import (Flask, render_template, redirect, url_for, flash,
-                   request, jsonify, abort)
+                   request, jsonify, abort, session)
 from flask_login import (LoginManager, login_user, logout_user,
                          login_required, current_user)
 from markupsafe import Markup, escape
@@ -13,6 +15,7 @@ from models import (db, User, Group, GroupMembership, GroupInvitation,
                     GroupMessage, MessageReaction, DirectMessage,
                     Post, PostReaction, Comment, Follow, Notification)
 from config import config
+from forms import bot_score, bot_score_label
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
@@ -52,6 +55,10 @@ def create_app(config_name=None):
     app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8 MB
 
     db.init_app(app)
+
+    # Flask-WTF needs a secret key (reuse Flask's)
+    if not app.config.get('WTF_CSRF_SECRET_KEY'):
+        app.config['WTF_CSRF_SECRET_KEY'] = app.config.get('SECRET_KEY', 'dev')
 
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -126,9 +133,10 @@ def create_app(config_name=None):
                 pending_invites=pending_invites,
                 unread_dms=unread_dms,
                 my_groups=my_groups,
+                is_superadmin=current_user.username == 'penguin',
             )
         return dict(unread_notifications=0, pending_invites=0,
-                    unread_dms=0, my_groups=[])
+                    unread_dms=0, my_groups=[], is_superadmin=False)
 
     # ─── Auth ─────────────────────────────────────────────────────────────────
 
@@ -143,11 +151,46 @@ def create_app(config_name=None):
         if current_user.is_authenticated:
             return redirect(url_for('square'))
         if request.method == 'POST':
+            # ── Step 2: captcha answer ──────────────────────────────────────
+            if request.form.get('captcha_step'):
+                uid = session.get('captcha_uid')
+                expected = session.get('captcha_answer')
+                try:
+                    given = int(request.form.get('captcha_answer', '').strip())
+                except ValueError:
+                    given = None
+                if uid and expected is not None and given == expected:
+                    user = User.query.get(uid)
+                    if user:
+                        user.needs_captcha = False
+                        db.session.commit()
+                        session.pop('captcha_uid', None)
+                        session.pop('captcha_answer', None)
+                        remember = session.pop('captcha_remember', False)
+                        login_user(user, remember=remember)
+                        return redirect(request.args.get('next') or url_for('square'))
+                flash('Incorrect answer. Please try again.', 'error')
+                # Re-generate challenge
+                a, b = random.randint(1, 12), random.randint(1, 12)
+                session['captcha_answer'] = a + b
+                return render_template('auth/login.html',
+                                       captcha_step=True,
+                                       captcha_q=f'{a} + {b}')
+
+            # ── Step 1: credential check ────────────────────────────────────
             username = request.form.get('username', '').strip().lower()
             password = request.form.get('password', '')
             remember = request.form.get('remember') == 'on'
             user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
+                if user.needs_captcha:
+                    a, b = random.randint(1, 12), random.randint(1, 12)
+                    session['captcha_uid'] = user.id
+                    session['captcha_answer'] = a + b
+                    session['captcha_remember'] = remember
+                    return render_template('auth/login.html',
+                                           captcha_step=True,
+                                           captcha_q=f'{a} + {b}')
                 login_user(user, remember=remember)
                 return redirect(request.args.get('next') or url_for('square'))
             flash('Invalid username or password.', 'error')
@@ -832,6 +875,107 @@ def create_app(config_name=None):
                 invitee_id=current_user.id, status='pending').count(),
         })
 
+    # ─── Superadmin (username == 'penguin') ──────────────────────────────────
+
+    def require_superadmin():
+        if not current_user.is_authenticated or current_user.username != 'penguin':
+            abort(403)
+
+    @app.route('/admin')
+    @login_required
+    def admin_panel():
+        require_superadmin()
+        users = User.query.order_by(User.created_at.desc()).all()
+        scored = []
+        for u in users:
+            sc = bot_score(u.username)
+            label, cls = bot_score_label(sc)
+            scored.append({'user': u, 'score': sc, 'label': label, 'cls': cls})
+        return render_template('admin/panel.html', scored=scored)
+
+    @app.route('/admin/user/<int:user_id>/delete', methods=['POST'])
+    @login_required
+    def admin_delete_user(user_id):
+        require_superadmin()
+        user = User.query.get_or_404(user_id)
+        if user.username == 'penguin':
+            flash("Can't delete the superadmin account.", 'error')
+            return redirect(url_for('admin_panel'))
+        # Cascade-delete owned data
+        Post.query.filter_by(user_id=user_id).delete()
+        Comment.query.filter_by(user_id=user_id).delete()
+        DirectMessage.query.filter(
+            (DirectMessage.sender_id == user_id) |
+            (DirectMessage.receiver_id == user_id)
+        ).delete()
+        Notification.query.filter_by(user_id=user_id).delete()
+        Follow.query.filter(
+            (Follow.follower_id == user_id) |
+            (Follow.following_id == user_id)
+        ).delete()
+        GroupMembership.query.filter_by(user_id=user_id).delete()
+        GroupInvitation.query.filter(
+            (GroupInvitation.inviter_id == user_id) |
+            (GroupInvitation.invitee_id == user_id)
+        ).delete()
+        db.session.delete(user)
+        db.session.commit()
+        flash(f'User @{user.username} deleted.', 'success')
+        return redirect(url_for('admin_panel'))
+
+    @app.route('/admin/user/<int:user_id>/reset-password', methods=['POST'])
+    @login_required
+    def admin_reset_password(user_id):
+        require_superadmin()
+        user = User.query.get_or_404(user_id)
+        temp = secrets.token_urlsafe(10)
+        user.set_password(temp)
+        db.session.commit()
+        flash(f'Password for @{user.username} reset to: {temp}  (shown once)', 'success')
+        return redirect(url_for('admin_panel'))
+
+    @app.route('/admin/user/<int:user_id>/captcha', methods=['POST'])
+    @login_required
+    def admin_send_captcha(user_id):
+        require_superadmin()
+        user = User.query.get_or_404(user_id)
+        user.needs_captcha = True
+        db.session.commit()
+        flash(f'@{user.username} will be challenged on next login.', 'success')
+        return redirect(url_for('admin_panel'))
+
+    @app.route('/admin/user/<int:user_id>/unban', methods=['POST'])
+    @login_required
+    def admin_unban_user(user_id):
+        require_superadmin()
+        user = User.query.get_or_404(user_id)
+        user.is_banned = False
+        user.needs_captcha = False
+        db.session.commit()
+        flash(f'@{user.username} cleared.', 'success')
+        return redirect(url_for('admin_panel'))
+
+    @app.route('/admin/user/<int:user_id>/ban', methods=['POST'])
+    @login_required
+    def admin_ban_user(user_id):
+        require_superadmin()
+        user = User.query.get_or_404(user_id)
+        if user.username == 'penguin':
+            flash("Can't ban the superadmin.", 'error')
+            return redirect(url_for('admin_panel'))
+        user.is_banned = True
+        db.session.commit()
+        flash(f'@{user.username} banned.', 'success')
+        return redirect(url_for('admin_panel'))
+
+    # Enforce ban + captcha on login
+    @app.before_request
+    def check_ban():
+        if current_user.is_authenticated and current_user.is_banned:
+            logout_user()
+            flash('Your account has been suspended.', 'error')
+            return redirect(url_for('login'))
+
     # ─── CLI Commands ─────────────────────────────────────────────────────────
 
     @app.cli.command('init-db')
@@ -850,6 +994,8 @@ def create_app(config_name=None):
                 "ALTER TABLE posts ADD COLUMN image_filename VARCHAR(255)",
                 "ALTER TABLE posts ADD COLUMN is_markdown BOOLEAN DEFAULT 0",
                 "ALTER TABLE comments ADD COLUMN updated_at DATETIME",
+                "ALTER TABLE users ADD COLUMN needs_captcha BOOLEAN DEFAULT 0",
+                "ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0",
             ]
             for sql in migrations:
                 try:

@@ -18,6 +18,8 @@ class User(UserMixin, db.Model):
     theme = db.Column(db.String(20), default='sunset')          # sunset | bw | natural
     article_mode = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
+    needs_captcha = db.Column(db.Boolean, default=False)        # superadmin can force re-verify
+    is_banned = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
 

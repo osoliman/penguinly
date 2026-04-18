@@ -135,6 +135,17 @@
         <span class="nav-label hide-collapsed">Settings</span>
       </a>
 
+      {% if is_superadmin %}
+      <a href="{{ url_for('admin_panel') }}"
+         class="nav-item {% if request.endpoint == 'admin_panel' %}active{% endif %}"
+         style="color: var(--accent);">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span class="nav-label hide-collapsed">Admin</span>
+      </a>
+      {% endif %}
+
       {% if my_groups %}
         <div class="divider hide-collapsed" style="margin: 12px 0 4px;"></div>
         <div class="nav-section-label hide-collapsed">My Groups</div>

@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel · Penguinly{% endblock %}
+
+{% block content %}
+<div class="admin-panel">
+
+  <div class="admin-header">
+    <div class="admin-header-left">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <div>
+        <h1 class="admin-title">Admin Panel</h1>
+        <p class="admin-subtitle">{{ scored | length }} registered users</p>
+      </div>
+    </div>
+    <div class="admin-stats">
+      {% set banned_count = scored | selectattr('user.is_banned') | list | length %}
+      {% set flagged_count = scored | selectattr('user.needs_captcha') | list | length %}
+      {% set high_risk_count = scored | selectattr('score', 'ge', 70) | list | length %}
+      <div class="admin-stat">
+        <span class="admin-stat-value">{{ banned_count }}</span>
+        <span class="admin-stat-label">Banned</span>
+      </div>
+      <div class="admin-stat">
+        <span class="admin-stat-value">{{ flagged_count }}</span>
+        <span class="admin-stat-label">Flagged</span>
+      </div>
+      <div class="admin-stat">
+        <span class="admin-stat-value">{{ high_risk_count }}</span>
+        <span class="admin-stat-label">High-risk</span>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">
+          {% if category == 'success' %}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          {% else %}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          {% endif %}
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="admin-search-bar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" id="admin-search" placeholder="Filter by username or email…" autocomplete="off">
+  </div>
+
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table class="admin-table" id="admin-user-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Email</th>
+          <th>Joined</th>
+          <th>Bot Score</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in scored %}
+        {% set u = entry.user %}
+        <tr class="admin-user-row{% if u.is_banned %} admin-row-banned{% endif %}" data-username="{{ u.username | lower }}" data-email="{{ u.email | lower }}">
+
+          <td>
+            <div class="admin-user-cell">
+              <div class="admin-avatar" style="background: {{ u.avatar_color }};">
+                {{ u.get_avatar_initials() }}
+              </div>
+              <div class="admin-user-info">
+                <a href="{{ url_for('profile', username=u.username) }}" class="admin-username">
+                  @{{ u.username }}
+                  {% if u.username == 'penguin' %}
+                    <span class="admin-superadmin-badge">superadmin</span>
+                  {% endif %}
+                </a>
+                {% if u.display_name %}
+                  <span class="admin-display-name">{{ u.display_name }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+
+          <td class="admin-email">{{ u.email }}</td>
+
+          <td class="admin-date">{{ u.created_at.strftime('%b %d, %Y') }}</td>
+
+          <td>
+            <span class="bot-score-badge bot-score-{{ entry.cls }}">
+              {{ entry.score }}/100 · {{ entry.label }}
+            </span>
+          </td>
+
+          <td>
+            <div class="admin-status-flags">
+              {% if u.is_banned %}
+                <span class="status-flag flag-banned">Banned</span>
+              {% endif %}
+              {% if u.needs_captcha %}
+                <span class="status-flag flag-captcha">CAPTCHA</span>
+              {% endif %}
+              {% if u.is_admin %}
+                <span class="status-flag flag-admin">Admin</span>
+              {% endif %}
+              {% if not u.is_banned and not u.needs_captcha and not u.is_admin %}
+                <span class="status-flag flag-ok">OK</span>
+              {% endif %}
+            </div>
+          </td>
+
+          <td>
+            {% if u.username != 'penguin' %}
+            <div class="admin-actions">
+
+              <form action="{{ url_for('admin_reset_password', user_id=u.id) }}" method="POST" class="admin-action-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-btn admin-btn-reset" title="Reset password (shown once)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                  </svg>
+                  Reset PW
+                </button>
+              </form>
+
+              <form action="{{ url_for('admin_send_captcha', user_id=u.id) }}" method="POST" class="admin-action-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-btn admin-btn-captcha" title="Flag for CAPTCHA on next login">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M9 12l2 2 4-4"/>
+                  </svg>
+                  CAPTCHA
+                </button>
+              </form>
+
+              {% if u.is_banned %}
+              <form action="{{ url_for('admin_unban_user', user_id=u.id) }}" method="POST" class="admin-action-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-btn admin-btn-unban" title="Lift ban and clear flags">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                  </svg>
+                  Unban
+                </button>
+              </form>
+              {% else %}
+              <form action="{{ url_for('admin_ban_user', user_id=u.id) }}" method="POST" class="admin-action-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-btn admin-btn-ban" title="Ban this user">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                  </svg>
+                  Ban
+                </button>
+              </form>
+              {% endif %}
+
+              <form action="{{ url_for('admin_delete_user', user_id=u.id) }}" method="POST" class="admin-action-form" onsubmit="return confirm('Permanently delete @{{ u.username }} and all their data? This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="admin-btn admin-btn-delete" title="Delete user and all data">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                  </svg>
+                  Delete
+                </button>
+              </form>
+
+            </div>
+            {% else %}
+            <span style="color: var(--text-muted); font-size: 0.8rem;">Protected</span>
+            {% endif %}
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const input = document.getElementById('admin-search');
+  const rows  = document.querySelectorAll('.admin-user-row');
+
+  input.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    rows.forEach(function (row) {
+      const username = row.dataset.username || '';
+      const email    = row.dataset.email    || '';
+      row.style.display = (!q || username.includes(q) || email.includes(q)) ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endblock %}
