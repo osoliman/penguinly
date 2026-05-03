@@ -69,6 +69,15 @@ def create_app(config_name=None):
     def load_user(user_id):
         return User.query.get(int(user_id))
 
+    @app.after_request
+    def add_no_cache_headers(response):
+        """Prevent browsers from caching dynamic HTML pages."""
+        if 'text/html' in response.content_type:
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
+
     @app.before_request
     def update_last_seen():
         # Skip API/polling endpoints — they fire every 2-5s and would cause
