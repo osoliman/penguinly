@@ -183,15 +183,18 @@ if (chatMessages && groupId) {
   }
 
   async function pollGroupMessages() {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 4000);
     try {
-      const res = await fetch(`/api/groups/${groupId}/messages?after=${lastGroupMsgId}`);
+      const res = await fetch(`/api/groups/${groupId}/messages?after=${lastGroupMsgId}`, { signal: ac.signal });
+      clearTimeout(t);
       if (!res.ok) return;
       const data = await res.json();
       data.forEach(msg => {
         appendGroupMessage(msg);
         if (msg.id > lastGroupMsgId) lastGroupMsgId = msg.id;
       });
-    } catch (_) {}
+    } catch (_) { clearTimeout(t); }
   }
 
   setInterval(pollGroupMessages, 5000);
@@ -223,15 +226,18 @@ if (dmMessages && dmUserId) {
   }
 
   async function pollDmMessages() {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 4000);
     try {
-      const res = await fetch(`/api/dm/${dmUserId}/messages?after=${lastDmMsgId}`);
+      const res = await fetch(`/api/dm/${dmUserId}/messages?after=${lastDmMsgId}`, { signal: ac.signal });
+      clearTimeout(t);
       if (!res.ok) return;
       const data = await res.json();
       data.forEach(msg => {
         appendDmMessage(msg);
         if (msg.id > lastDmMsgId) lastDmMsgId = msg.id;
       });
-    } catch (_) {}
+    } catch (_) { clearTimeout(t); }
   }
 
   setInterval(pollDmMessages, 5000);
@@ -244,14 +250,17 @@ const inviteBadge = document.getElementById('invite-badge');
 
 if (notifBadge || dmBadge) {
   async function pollBadges() {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 4000);
     try {
-      const res = await fetch('/api/badge-counts');
+      const res = await fetch('/api/badge-counts', { signal: ac.signal });
+      clearTimeout(t);
       if (!res.ok) return;
       const data = await res.json();
       updateBadge(notifBadge, data.notifications);
       updateBadge(dmBadge, data.dms);
       updateBadge(inviteBadge, data.invites);
-    } catch (_) {}
+    } catch (_) { clearTimeout(t); }
   }
 
   function updateBadge(el, count) {
