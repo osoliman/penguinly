@@ -78,6 +78,21 @@ def create_app(config_name=None):
             response.headers['Expires'] = '0'
         return response
 
+    # Inject a static asset version into every template so browsers
+    # always load fresh JS/CSS after a deploy (cache-busting).
+    import subprocess as _sp
+    try:
+        _git_hash = _sp.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            cwd=os.path.dirname(__file__), stderr=_sp.DEVNULL
+        ).decode().strip()
+    except Exception:
+        _git_hash = '1'
+
+    @app.context_processor
+    def inject_static_version():
+        return {'static_version': _git_hash}
+
     @app.before_request
     def update_last_seen():
         # Skip API/polling endpoints — they fire every 2-5s and would cause
@@ -287,15 +302,19 @@ def create_app(config_name=None):
     @app.route('/square')
     @login_required
     def square():
-        posts = Post.query.filter_by(post_type='public').order_by(
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
+        pagination = Post.query.filter_by(post_type='public').order_by(
             Post.created_at.desc()
-        ).all()
+        ).paginate(page=page, per_page=per_page, error_out=False)
+        posts = pagination.items
         following_ids = [f.following_id for f in Follow.query.filter_by(
             follower_id=current_user.id
         ).all()]
         following_ids.append(current_user.id)
         suggested = User.query.filter(~User.id.in_(following_ids)).limit(6).all()
-        return render_template('square.html', posts=posts, suggested=suggested)
+        return render_template('square.html', posts=posts, suggested=suggested,
+                               has_next=pagination.has_next, next_page=page + 1)
 
     @app.route('/square/post', methods=['POST'])
     @login_required
@@ -578,10 +597,14 @@ def create_app(config_name=None):
         inv.responded_at = datetime.utcnow()
         if request.form.get('action') == 'accept':
             inv.status = 'accepted'
-            db.session.add(GroupMembership(
-                group_id=inv.group_id, user_id=current_user.id,
-                role='member', status='active',
-            ))
+            existing = GroupMembership.query.filter_by(
+                group_id=inv.group_id, user_id=current_user.id
+            ).first()
+            if not existing:
+                db.session.add(GroupMembership(
+                    group_id=inv.group_id, user_id=current_user.id,
+                    role='member', status='active',
+                ))
             db.session.commit()
             flash(f'You joined "{inv.group.name}"!', 'success')
             return redirect(url_for('view_group', group_id=inv.group_id))

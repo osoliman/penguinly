@@ -274,6 +274,15 @@
             </div>
           </div>
         {% endfor %}
+        {% if has_next %}
+        <div style="padding:20px;text-align:center;border-top:1px solid var(--border);">
+          <a href="{{ url_for('square', page=next_page) }}"
+             class="btn btn-secondary"
+             style="min-width:160px;">
+            Load more posts
+          </a>
+        </div>
+        {% endif %}
       {% else %}
         <div class="empty-state">
           <div class="empty-icon">
