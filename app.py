@@ -272,7 +272,7 @@ def create_app(config_name=None):
     def square():
         posts = Post.query.filter_by(post_type='public').order_by(
             Post.created_at.desc()
-        ).limit(60).all()
+        ).all()
         following_ids = [f.following_id for f in Follow.query.filter_by(
             follower_id=current_user.id
         ).all()]
@@ -762,7 +762,7 @@ def create_app(config_name=None):
         posts = Post.query.filter(
             Post.content.ilike(f'%#{tag_clean}%'),
             Post.post_type == 'public',
-        ).order_by(Post.created_at.desc()).limit(60).all()
+        ).order_by(Post.created_at.desc()).all()
         return render_template('tag.html', tag=tag_clean, posts=posts)
 
     # ─── Notifications ────────────────────────────────────────────────────────
