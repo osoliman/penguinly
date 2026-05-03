@@ -902,8 +902,28 @@ def create_app(config_name=None):
             flash("Can't delete the superadmin account.", 'error')
             return redirect(url_for('admin_panel'))
         # Cascade-delete owned data
+        # 1. Groups this user created — delete their contents first, then the group
+        owned_groups = Group.query.filter_by(created_by=user_id).all()
+        for group in owned_groups:
+            gid = group.id
+            for msg in GroupMessage.query.filter_by(group_id=gid).all():
+                MessageReaction.query.filter_by(message_id=msg.id).delete()
+            GroupMessage.query.filter_by(group_id=gid).delete()
+            GroupMembership.query.filter_by(group_id=gid).delete()
+            GroupInvitation.query.filter_by(group_id=gid).delete()
+            db.session.delete(group)
+        db.session.flush()  # resolve group FK before deleting user
+
+        # 2. Posts and their reactions/comments
+        for post in Post.query.filter_by(user_id=user_id).all():
+            PostReaction.query.filter_by(post_id=post.id).delete()
+            Comment.query.filter_by(post_id=post.id).delete()
         Post.query.filter_by(user_id=user_id).delete()
+
+        # 3. Comments on other people's posts
         Comment.query.filter_by(user_id=user_id).delete()
+
+        # 4. DMs, notifications, follows, remaining memberships/invitations, reactions
         DirectMessage.query.filter(
             (DirectMessage.sender_id == user_id) |
             (DirectMessage.receiver_id == user_id)
@@ -918,6 +938,9 @@ def create_app(config_name=None):
             (GroupInvitation.inviter_id == user_id) |
             (GroupInvitation.invitee_id == user_id)
         ).delete()
+        PostReaction.query.filter_by(user_id=user_id).delete()
+        MessageReaction.query.filter_by(user_id=user_id).delete()
+
         db.session.delete(user)
         db.session.commit()
         flash(f'User @{user.username} deleted.', 'success')
