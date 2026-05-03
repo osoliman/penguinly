@@ -299,6 +299,21 @@ def create_app(config_name=None):
 
     # ─── Public Square ────────────────────────────────────────────────────────
 
+    @app.route('/api/square/posts')
+    @login_required
+    def api_square_posts():
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
+        pagination = Post.query.filter_by(post_type='public').order_by(
+            Post.created_at.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
+        html = render_template('_square_posts.html', posts=pagination.items)
+        return jsonify({
+            'html': html,
+            'has_next': pagination.has_next,
+            'next_page': page + 1,
+        })
+
     @app.route('/square')
     @login_required
     def square():
