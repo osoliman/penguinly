@@ -71,12 +71,20 @@ def create_app(config_name=None):
 
     @app.before_request
     def update_last_seen():
+        # Skip API/polling endpoints — they fire every 2-5s and would cause
+        # constant SQLite write-lock contention across all workers.
+        if request.path.startswith('/api/'):
+            return
         if current_user.is_authenticated:
-            current_user.last_seen = datetime.utcnow()
-            try:
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+            now = datetime.utcnow()
+            # Only write to DB if last_seen is stale by more than 60 seconds
+            if (not current_user.last_seen or
+                    (now - current_user.last_seen).total_seconds() > 60):
+                current_user.last_seen = now
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
 
     # ─── Jinja2 filter ───────────────────────────────────────────────────────
 

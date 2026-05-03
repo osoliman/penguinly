@@ -194,7 +194,7 @@ if (chatMessages && groupId) {
     } catch (_) {}
   }
 
-  setInterval(pollGroupMessages, 2500);
+  setInterval(pollGroupMessages, 5000);
 }
 
 // ─── DM chat polling ──────────────────────────────────────────────────────────
@@ -234,7 +234,7 @@ if (dmMessages && dmUserId) {
     } catch (_) {}
   }
 
-  setInterval(pollDmMessages, 2000);
+  setInterval(pollDmMessages, 5000);
 }
 
 // ─── Badge count polling ──────────────────────────────────────────────────────
