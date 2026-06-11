@@ -1,3 +1,4 @@
+{% from '_macros.html' import gold_badge %}
 <!DOCTYPE html>
 <html lang="en" data-theme="sunset">
 <head>
@@ -169,7 +170,9 @@
       </a>
       <div class="sidebar-user-info hide-collapsed">
         <a href="{{ url_for('profile', username=current_user.username) }}"
-           class="sidebar-user-name">{{ current_user.display_name }}</a>
+           class="sidebar-user-name" style="display:inline-flex;align-items:center;gap:2px;">
+          {{ current_user.display_name }}{% if current_user.username == 'penguin' %}{{ gold_badge() }}{% endif %}
+        </a>
         <span class="sidebar-user-handle">@{{ current_user.username }}</span>
       </div>
       <a href="{{ url_for('logout') }}" class="sidebar-logout hide-collapsed" title="Sign out">

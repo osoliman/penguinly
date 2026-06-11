@@ -1183,3 +1183,18 @@ img { max-width: 100%; display: block; }
   .square-layout { padding: 0 12px 40px; }
   .page-header { padding: 18px 16px 14px; }
 }
+
+/* ─── Gold badge (superadmin) ────────────────────────────────────────────── */
+.gold-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  border-radius: 50%;
+  margin-left: 3px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(245,158,11,.4);
+  position: relative;
+  top: -1px;
+}
+.gold-badge svg { display:block; }

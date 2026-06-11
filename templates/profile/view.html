@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from '_macros.html' import gold_badge %}
 {% block title %}{{ user.display_name }} — Penguinly{% endblock %}
 
 {% block content %}
@@ -13,7 +14,9 @@
         {{ user.get_avatar_initials() }}
       </div>
 
-      <div class="profile-name">{{ user.display_name }}</div>
+      <div class="profile-name" style="display:inline-flex;align-items:center;gap:4px;">
+        {{ user.display_name }}{% if user.username == 'penguin' %}{{ gold_badge() }}{% endif %}
+      </div>
       <div class="profile-handle">@{{ user.username }}</div>
 
       {% if user.bio %}

@@ -1,3 +1,4 @@
+{% from '_macros.html' import gold_badge %}
 {% for post in posts %}
   <div class="post-card">
     <!-- Header -->
@@ -10,7 +11,9 @@
       <div style="flex:1;min-width:0;">
         <a href="{{ url_for('profile', username=post.author.username) }}"
            style="text-decoration:none;">
-          <div class="post-author-name">{{ post.author.display_name }}</div>
+          <div class="post-author-name" style="display:inline-flex;align-items:center;gap:3px;">
+            {{ post.author.display_name }}{% if post.author.username == 'penguin' %}{{ gold_badge() }}{% endif %}
+          </div>
           <div class="post-author-handle">@{{ post.author.username }}</div>
         </a>
       </div>
